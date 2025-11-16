@@ -27,7 +27,12 @@ def create_complex_failed_trace():
     which causes all subsequent calculations to be off by 2, resulting in a final
     answer of 95 instead of 93.
     """
-    trace = TraceLogger()
+    problem_statement = (
+        "A store has 120 items in stock. During a sale, they sell 35% of their "
+        "inventory in the morning. In the afternoon, they receive a shipment of 40 new items. "
+        "Then they sell 25 more items. How many items does the store have at the end of the day?"
+    )
+    trace = TraceLogger(problem_statement=problem_statement)
 
     # Step 0: Initial problem understanding (correct)
     step_0 = trace.log_reasoning(

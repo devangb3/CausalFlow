@@ -173,6 +173,9 @@ class MultiAgentCritique:
 
         prompt = f"""You are critically evaluating a causal attribution claim.
 
+PROBLEM STATEMENT:
+{self.trace.problem_statement}
+
 EXECUTION TRACE SUMMARY:
 - Task outcome: FAILED
 - Final answer: {self.trace.final_answer}

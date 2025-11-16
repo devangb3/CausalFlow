@@ -169,6 +169,9 @@ class CounterfactualRepair:
     def _create_repair_prompt(self, step: Step, all_steps: List[Step], proposal_num: int = 0) -> str:
 
         prompt = f"""You are debugging a failed agent execution. The agent's final answer was incorrect.
+
+Problem Statement: {self.trace.problem_statement}
+
 All steps in the trace:
 {json.dumps([step.to_dict() for step in all_steps], indent=2)}
 
@@ -320,7 +323,9 @@ Step {step.step_id} ({step.step_type.value}):
             True if predicted to succeed
         """
         # Use the same prediction method as causal attribution
-        return self.causal_attribution._llm_predict_outcome(step_id, repaired_step)
+        return self.causal_attribution._llm_predict_outcome(
+            step_id, repaired_step, self.trace.problem_statement
+        )
 
     def get_best_repair(self, step_id: int) -> Optional[Repair]:
         if step_id not in self.repairs:

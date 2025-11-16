@@ -66,13 +66,19 @@ class TraceLogger:
     - Dependencies between steps
     """
 
-    def __init__(self):
-        """Initialize an empty trace logger."""
+    def __init__(self, problem_statement: Optional[str] = None):
+        """Initialize an empty trace logger.
+
+        Args:
+            problem_statement: The original task or question the agent is trying to solve.
+                             This provides essential context for causal analysis.
+        """
         self.steps: List[Step] = []
         self.current_step_id: int = 0
         self.success: Optional[bool] = None
         self.final_answer: Optional[str] = None
         self.gold_answer: Optional[str] = None
+        self.problem_statement: Optional[str] = problem_statement
 
     def log_reasoning(self, text: str, dependencies: List[int] = None) -> int:
         step = Step(
@@ -180,6 +186,7 @@ class TraceLogger:
             "success": self.success,
             "final_answer": self.final_answer,
             "gold_answer": self.gold_answer,
+            "problem_statement": self.problem_statement,
             "num_steps": len(self.steps)
         }
 
@@ -216,6 +223,7 @@ class TraceLogger:
         logger.success = data.get("success")
         logger.final_answer = data.get("final_answer")
         logger.gold_answer = data.get("gold_answer")
+        logger.problem_statement = data.get("problem_statement")
 
         return logger
 
