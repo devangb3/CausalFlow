@@ -14,3 +14,15 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Generated example outputs
+examples/*.json
+examples/*_report.txt
+examples/*_results.json
+
+# Legacy output files (if run from root)
+sample_trace.json
+causalflow_report.txt
+causalflow_results.json
+agent_trace.json
+agent_analysis.txt

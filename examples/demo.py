@@ -8,7 +8,12 @@ This script:
 """
 
 import os
+import sys
 from dotenv import load_dotenv
+
+# Add parent directory to path to import modules
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from example_agent import MathReasoningAgent
 from llm_client import LLMClient
 from causal_flow import CausalFlow
@@ -77,8 +82,8 @@ def demo_basic_trace():
         print(f"  Step {step.step_id} [{step.step_type.value}]: deps={step.dependencies}")
 
     # Save trace
-    trace.to_json("sample_trace.json")
-    print("\nTrace saved to sample_trace.json")
+    trace.to_json("examples/sample_trace.json")
+    print("\nTrace saved to examples/sample_trace.json")
 
     return trace
 
@@ -110,11 +115,11 @@ def demo_causal_flow_analysis():
             skip_repair=False,
         )
 
-        report = flow.generate_full_report("causalflow_report.txt")
+        report = flow.generate_full_report("examples/simple_causalflow_report.txt")
         print(report)
 
         # Export results
-        flow.export_results("causalflow_results.json")
+        flow.export_results("examples/simple_causalflow_results.json")
 
         print("\nAnalysis complete!")
     except Exception as e:
@@ -149,7 +154,7 @@ def demo_with_real_agent():
         trace = agent.get_trace()
 
         # Save trace
-        agent.save_trace("agent_trace.json")
+        agent.save_trace("examples/agent_trace.json")
 
         # Analyze if it failed
         if not trace.success:
@@ -158,8 +163,8 @@ def demo_with_real_agent():
             flow = CausalFlow(api_key=api_key)
             results = flow.analyze_trace(trace)
 
-            flow.generate_full_report("agent_analysis.txt")
-            print("\nAnalysis saved to agent_analysis.txt")
+            flow.generate_full_report("examples/agent_analysis.txt")
+            print("\nAnalysis saved to examples/agent_analysis.txt")
         else:
             print("\nAgent succeeded!")
 
