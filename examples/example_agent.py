@@ -5,9 +5,15 @@ This example shows a simple math reasoning agent that solves word problems
 and logs its execution trace for CausalFlow analysis.
 """
 
+import os
+import sys
+from typing import Optional
+
+# Add parent directory to path to import modules
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from trace_logger import TraceLogger
 from llm_client import LLMClient
-from typing import Optional
 
 
 class MathReasoningAgent:

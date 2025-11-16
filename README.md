@@ -85,7 +85,11 @@ print(report)
 ### Run the Demo
 
 ```bash
-python demo.py
+# Simple example (beginner)
+python examples/demo.py
+
+# Complex example (advanced)
+python examples/complex_example.py
 ```
 
 This will:
@@ -355,18 +359,46 @@ report = critique.generate_report()
 
 ## 📝 Examples
 
-### Example 1: Simple Math Agent
+All examples are located in the `examples/` directory. See [examples/README.md](examples/README.md) for detailed documentation.
 
-See `example_agent.py` for a complete implementation of a math reasoning agent with trace logging.
+### Example 1: Simple Demo (`examples/demo.py`)
 
-### Example 2: Failed Trace Analysis
+**Difficulty**: Beginner
 
-See `demo.py` for:
-- Creating sample failed traces
-- Running CausalFlow analysis
-- Generating comprehensive reports
+A basic example with a simple arithmetic problem (5 + 3) where the agent fabricates information.
+- 5 execution steps
+- Easy-to-understand error pattern
+- Perfect for learning CausalFlow basics
 
-### Example 3: Custom Agent Integration
+```bash
+python examples/demo.py
+```
+
+### Example 2: Complex Multi-Step Problem (`examples/complex_example.py`)
+
+**Difficulty**: Advanced
+
+A realistic failure scenario with inventory tracking, percentages, and error propagation.
+- 14 execution steps
+- Multiple operations (multiplication, addition, subtraction)
+- Demonstrates error cascading through correct intermediate steps
+- Shows CausalFlow's power on longer reasoning chains
+
+```bash
+python examples/complex_example.py
+```
+
+### Example 3: Reusable Agent Class (`examples/example_agent.py`)
+
+A complete implementation of `MathReasoningAgent` showing:
+- Integration with TraceLogger
+- Chain-of-thought reasoning
+- Tool calls (calculator)
+- Automatic trace logging
+
+See [examples/README.md](examples/README.md) for usage details and comparisons.
+
+### Example 4: Custom Agent Integration
 
 ```python
 from trace_logger import TraceLogger
