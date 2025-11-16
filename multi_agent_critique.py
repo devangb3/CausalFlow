@@ -205,7 +205,7 @@ class MultiAgentCritique:
             response = agent.generate(
                 prompt,
                 system_message=f"You are a critical evaluator (role: {role}) analyzing causal claims.",
-                temperature=0.3  # Lower temperature for more consistent critique
+                temperature=0.3
             )
 
             # Parse response for agreement and confidence
@@ -233,18 +233,7 @@ class MultiAgentCritique:
         role: str,
         previous_critique: Optional[str] = None
     ) -> str:
-        """
-        Create a prompt for agent critique.
 
-        Args:
-            step: The step being critiqued
-            crs_score: Causal Responsibility Score from Agent A
-            role: Role of this critique
-            previous_critique: Optional previous critique
-
-        Returns:
-            Prompt string
-        """
         prompt = f"""You are critically evaluating a causal attribution claim.
 
 EXECUTION TRACE SUMMARY:
@@ -267,7 +256,7 @@ DESCENDANTS (affected by this step):
 """
         # Add descendant information
         descendants = list(self.causal_attribution.causal_graph.get_descendants(step.step_id))
-        for desc_id in descendants[:5]:  # Limit to first 5
+        for desc_id in descendants:
             desc_step = self.trace.get_step(desc_id)
             if desc_step:
                 prompt += f"  Step {desc_id}: {self._summarize_step(desc_step)}\n"
@@ -406,12 +395,7 @@ Be thorough and critical. Challenge weak causal claims.
         ]
 
     def generate_report(self) -> str:
-        """
-        Generate a human-readable report of multi-agent critique.
 
-        Returns:
-            Report string
-        """
         lines = ["=" * 60]
         lines.append("MULTI-AGENT CRITIQUE REPORT")
         lines.append("=" * 60)
@@ -438,7 +422,7 @@ Be thorough and critical. Challenge weak causal claims.
                 lines.append(f"  {critique['agent']} ({critique['role']}):")
                 lines.append(f"    Agrees: {critique['agrees']}")
                 lines.append(f"    Confidence: {critique['confidence']:.2f}")
-                reasoning = critique['response'].split('REASONING:')[-1].strip()[:150]
+                reasoning = critique['response'].split('REASONING:')[-1].strip()
                 lines.append(f"    Reasoning: {reasoning}...")
                 lines.append("")
 

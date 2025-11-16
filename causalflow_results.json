@@ -1,0 +1,102 @@
+{
+  "trace_summary": {
+    "total_steps": 6,
+    "success": false,
+    "final_answer": "6",
+    "gold_answer": "8"
+  },
+  "causal_graph": {
+    "statistics": {
+      "total_steps": 6,
+      "total_edges": 5,
+      "step_types": {
+        "reasoning": 3,
+        "tool_call": 1,
+        "tool_response": 1,
+        "final_answer": 1
+      },
+      "max_depth": 5,
+      "is_dag": true,
+      "critical_steps": 0
+    }
+  },
+  "causal_attribution": {
+    "crs_scores": {
+      "0": 1.0,
+      "1": 0.0,
+      "2": 0.0,
+      "3": 0.0,
+      "4": 1.0,
+      "5": 1.0
+    },
+    "causal_steps": [
+      0,
+      4,
+      5
+    ],
+    "top_causal_steps": [
+      [
+        0,
+        1.0
+      ],
+      [
+        4,
+        1.0
+      ],
+      [
+        5,
+        1.0
+      ],
+      [
+        1,
+        0.0
+      ],
+      [
+        2,
+        0.0
+      ]
+    ]
+  },
+  "counterfactual_repair": {
+    "num_steps_repaired": 3,
+    "num_successful_repairs": 3,
+    "best_repairs": {
+      "0": {
+        "minimality_score": 0.19999999999999996,
+        "success_predicted": true
+      },
+      "4": {
+        "minimality_score": 0.2222222222222222,
+        "success_predicted": false
+      },
+      "5": {
+        "minimality_score": 0.0,
+        "success_predicted": true
+      }
+    }
+  },
+  "multi_agent_critique": {
+    "num_steps_critiqued": 3,
+    "consensus_steps": [
+      4,
+      5
+    ],
+    "critique_details": {
+      "0": {
+        "consensus_score": 0.4,
+        "final_verdict": false,
+        "num_critiques": 2
+      },
+      "4": {
+        "consensus_score": 0.88,
+        "final_verdict": true,
+        "num_critiques": 2
+      },
+      "5": {
+        "consensus_score": 0.94,
+        "final_verdict": true,
+        "num_critiques": 2
+      }
+    }
+  }
+}

@@ -6,7 +6,8 @@ as specified in Section 6 of the research proposal.
 """
 
 import copy
-from typing import Dict, List, Any, Optional, Tuple
+import json
+from typing import Dict, List, Any, Optional
 from trace_logger import TraceLogger, Step, StepType
 from causal_attribution import CausalAttribution
 from llm_client import LLMClient
@@ -100,13 +101,13 @@ class CounterfactualRepair:
             Dictionary mapping step_id to list of repair proposals
         """
         if step_ids is None:
-            # Get causal steps from attribution
             step_ids = self.causal_attribution.get_causal_steps()
 
         for step_id in step_ids:
             self.repairs[step_id] = self._generate_repairs_for_step(
                 step_id,
-                num_proposals
+                num_proposals,
+                self.trace.steps
             )
 
         return self.repairs
@@ -114,7 +115,8 @@ class CounterfactualRepair:
     def _generate_repairs_for_step(
         self,
         step_id: int,
-        num_proposals: int
+        num_proposals: int,
+        all_steps: List[Step]
     ) -> List[Repair]:
         """
         Generate multiple repair proposals for a single step.
@@ -133,7 +135,7 @@ class CounterfactualRepair:
         proposals = []
 
         for i in range(num_proposals):
-            prompt = self._create_repair_prompt(original_step, proposal_num=i)
+            prompt = self._create_repair_prompt(original_step, all_steps, proposal_num=i)
 
             try:
                 repaired_content = self.llm_client.generate(
@@ -170,20 +172,13 @@ class CounterfactualRepair:
 
         return proposals
 
-    def _create_repair_prompt(self, step: Step, proposal_num: int = 0) -> str:
-        """
-        Create a prompt for generating a repair.
+    def _create_repair_prompt(self, step: Step, all_steps: List[Step], proposal_num: int = 0) -> str:
 
-        Args:
-            step: The step to repair
-            proposal_num: The proposal number (for variety)
-
-        Returns:
-            Prompt string
-        """
         prompt = f"""You are debugging a failed agent execution. The agent's final answer was incorrect.
+All steps in the trace:
+{json.dumps([step.to_dict() for step in all_steps], indent=2)}
 
-This step has been identified as causally responsible for the failure.
+Below is the step that has been identified as causally responsible for the failure.
 
 Step {step.step_id} ({step.step_type.value}):
 """

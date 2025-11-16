@@ -11,21 +11,13 @@ import os
 from dotenv import load_dotenv
 from example_agent import MathReasoningAgent
 from llm_client import LLMClient
-from causal_flow import CausalFlow, analyze_failed_trace
+from causal_flow import CausalFlow
+from trace_logger import TraceLogger
 
 
 def create_sample_failed_trace():
-    """
-    Create a sample failed execution trace for demonstration.
-
-    This simulates an agent that makes an error in reasoning.
-    """
-    from trace_logger import TraceLogger
 
     trace = TraceLogger()
-
-    # Problem: "If John has 5 apples and buys 3 more, how many does he have?"
-    # Correct answer: 8
 
     # Step 0: Initial reasoning (correct)
     step_0 = trace.log_reasoning(
@@ -71,10 +63,6 @@ def create_sample_failed_trace():
 
 
 def demo_basic_trace():
-    """Demonstrate basic trace logging and inspection."""
-    print("\n" + "=" * 70)
-    print("DEMO 1: Basic Trace Logging")
-    print("=" * 70)
 
     trace = create_sample_failed_trace()
 
@@ -90,7 +78,7 @@ def demo_basic_trace():
 
     # Save trace
     trace.to_json("sample_trace.json")
-    print("\n✓ Trace saved to sample_trace.json")
+    print("\nTrace saved to sample_trace.json")
 
     return trace
 
@@ -98,7 +86,7 @@ def demo_basic_trace():
 def demo_causal_flow_analysis():
     """Demonstrate full CausalFlow analysis."""
     print("\n" + "=" * 70)
-    print("DEMO 2: CausalFlow Analysis")
+    print("DEMO: CausalFlow Analysis")
     print("=" * 70)
 
     # Check if API key is set
@@ -106,40 +94,21 @@ def demo_causal_flow_analysis():
     api_key = os.getenv("OPENROUTER_SECRET_KEY")
 
     if not api_key:
-        print("\n⚠ OPENROUTER_SECRET_KEY not found in .env file")
-        print("  To run this demo with actual LLM analysis:")
-        print("  1. Copy .env.example to .env")
-        print("  2. Add your OpenRouter API key")
-        print("  3. Run this demo again")
-        print("\n  For now, running with mock trace only...")
-
-        # Still show the trace structure
-        trace = create_sample_failed_trace()
-        print("\nFailed trace created. Without API key, skipping LLM-based analysis.")
+        print("\nOPENROUTER_SECRET_KEY not found in .env file")
         return
 
-    # Create trace
     trace = create_sample_failed_trace()
 
-    # Run CausalFlow analysis
     print("\nInitializing CausalFlow...")
     flow = CausalFlow(api_key=api_key)
 
     print("\nRunning analysis...")
-    print("(This may take a minute as multiple LLM calls are made)")
 
     try:
-        # For demo, skip critique to reduce API calls
         results = flow.analyze_trace(
             trace,
             skip_repair=False,
-            skip_critique=True  # Set to False for full analysis
         )
-
-        # Generate report
-        print("\n" + "=" * 70)
-        print("ANALYSIS COMPLETE")
-        print("=" * 70)
 
         report = flow.generate_full_report("causalflow_report.txt")
         print(report)
@@ -147,13 +116,9 @@ def demo_causal_flow_analysis():
         # Export results
         flow.export_results("causalflow_results.json")
 
-        print("\n✓ Analysis complete!")
-        print("  - Report saved to: causalflow_report.txt")
-        print("  - Results saved to: causalflow_results.json")
-
+        print("\nAnalysis complete!")
     except Exception as e:
-        print(f"\n✗ Error during analysis: {e}")
-        print("  This might be due to API key issues or network problems.")
+        print(f"\nError during analysis: {e}")
 
 
 def demo_with_real_agent():
@@ -166,7 +131,7 @@ def demo_with_real_agent():
     api_key = os.getenv("OPENROUTER_SECRET_KEY")
 
     if not api_key:
-        print("\n⚠ OPENROUTER_SECRET_KEY not found. Skipping this demo.")
+        print("\nOPENROUTER_SECRET_KEY not found. Skipping this demo.")
         return
 
     # Create agent
@@ -188,44 +153,24 @@ def demo_with_real_agent():
 
         # Analyze if it failed
         if not trace.success:
-            print("\n🔍 Agent failed! Running CausalFlow analysis...")
+            print("\nAgent failed! Running CausalFlow analysis...")
 
             flow = CausalFlow(api_key=api_key)
-            results = flow.analyze_trace(trace, skip_critique=True)
+            results = flow.analyze_trace(trace)
 
             flow.generate_full_report("agent_analysis.txt")
-            print("\n✓ Analysis saved to agent_analysis.txt")
+            print("\nAnalysis saved to agent_analysis.txt")
         else:
-            print("\n✓ Agent succeeded!")
+            print("\nAgent succeeded!")
 
     except Exception as e:
-        print(f"\n✗ Error: {e}")
+        print(f"\nError: {e}")
 
 
 def main():
-    """Run all demos."""
-    print("\n" + "=" * 70)
-    print("CausalFlow Demo Suite")
-    print("=" * 70)
+    #trace = demo_basic_trace()
 
-    # Demo 1: Basic trace logging
-    trace = demo_basic_trace()
-
-    # Demo 2: CausalFlow analysis
     demo_causal_flow_analysis()
-
-    # Demo 3: Real agent (optional)
-    # Uncomment to run with a real agent
-    # demo_with_real_agent()
-
-    print("\n" + "=" * 70)
-    print("Demo Complete!")
-    print("=" * 70)
-    print("\nNext steps:")
-    print("  1. Check the generated files (sample_trace.json, etc.)")
-    print("  2. Set up your .env file with OPENROUTER_SECRET_KEY")
-    print("  3. Run demo_causal_flow_analysis() to see full analysis")
-    print("  4. Explore the codebase and build your own agents!")
 
 
 if __name__ == "__main__":

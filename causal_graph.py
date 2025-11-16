@@ -37,7 +37,6 @@ class CausalGraph:
         1. Create a node for every step in the trace
         2. For each step, inspect its dependencies field
         3. Add directed edges from dependent steps to current step
-        4. Optionally create a FINAL node connected from the final answer
         """
         # Add all steps as nodes
         for step in self.trace.steps:
@@ -52,21 +51,6 @@ class CausalGraph:
             for dep_id in step.dependencies:
                 # Edge from dependency to current step (dep -> step)
                 self.graph.add_edge(dep_id, step.step_id)
-
-        # Add special FINAL node if there's a final answer
-        final_answer_steps = [
-            s for s in self.trace.steps
-            if s.step_type == StepType.FINAL_ANSWER
-        ]
-
-        if final_answer_steps:
-            final_step = final_answer_steps[-1]  # Take the last one
-            self.graph.add_node(
-                "FINAL",
-                step_type="final",
-                step=final_step
-            )
-            self.graph.add_edge(final_step.step_id, "FINAL")
 
     def get_ancestors(self, step_id: int) -> Set[int]:
         """

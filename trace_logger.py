@@ -1,8 +1,5 @@
 """
 TraceLogger: Captures every internal step of an agent's decision-making process.
-
-This module implements the trace extraction component of CausalFlow as specified
-in Section 3 of the research proposal.
 """
 
 import json
@@ -24,7 +21,6 @@ class StepType(Enum):
 
 @dataclass
 class Step:
-    """Represents a single step in the agent's execution trace."""
     step_id: int
     step_type: StepType
     dependencies: List[int] = field(default_factory=list)

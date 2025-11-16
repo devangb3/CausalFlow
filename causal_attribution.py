@@ -115,7 +115,7 @@ class CausalAttribution:
 
     def _generate_intervention(self, step: Step) -> Optional[Step]:
         """
-        Generate an intervention (corrected version) for a step.
+        Generate an corrected version for a step.
 
         Args:
             step: The original step
@@ -153,15 +153,7 @@ class CausalAttribution:
             return None
 
     def _create_intervention_prompt(self, step: Step) -> str:
-        """
-        Create a prompt for the LLM to generate an intervention.
 
-        Args:
-            step: The step to create intervention for
-
-        Returns:
-            Prompt string
-        """
         context = self._get_step_context(step)
 
         prompt = f"""You are analyzing a failed agent execution. The agent produced an incorrect final answer.
@@ -230,12 +222,12 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
             Summary string
         """
         if step.step_type == StepType.REASONING:
-            text = step.text[:100] + "..." if len(step.text) > 100 else step.text
+            text = step.text[:1000] + "..." if len(step.text) > 1000 else step.text
             return f"[Reasoning] {text}"
         elif step.step_type == StepType.TOOL_CALL:
             return f"[Tool Call] {step.tool_name}({step.tool_args})"
         elif step.step_type == StepType.TOOL_RESPONSE:
-            output = str(step.tool_output)[:100]
+            output = str(step.tool_output)
             return f"[Tool Response] {output}"
         elif step.step_type == StepType.MEMORY_ACCESS:
             return f"[Memory] {step.memory_key} = {step.memory_value}"
@@ -321,7 +313,7 @@ Intervened: {self._summarize_step(intervened_step)}
 Descendants of this step (affected by the intervention):
 """
         descendants = self.causal_graph.get_descendants(step_id)
-        for desc_id in sorted(descendants)[:5]:  # Limit to first 5
+        for desc_id in sorted(descendants):
             desc_step = self.trace.get_step(desc_id)
             if desc_step:
                 prompt += f"  Step {desc_id}: {self._summarize_step(desc_step)}\n"
@@ -368,12 +360,7 @@ Descendants of this step (affected by the intervention):
         return sorted_steps[:n]
 
     def generate_report(self) -> str:
-        """
-        Generate a human-readable report of causal attribution.
 
-        Returns:
-            Report string
-        """
         lines = ["=" * 60]
         lines.append("CAUSAL ATTRIBUTION REPORT")
         lines.append("=" * 60)
@@ -401,9 +388,9 @@ Descendants of this step (affected by the intervention):
                 if step_id in self.intervention_results:
                     result = self.intervention_results[step_id]
                     if "intervened_step" in result:
-                        intervened = Step(**{k: v for k, v in result["intervened_step"].items()
-                                           if k != "step_type"})
-                        intervened.step_type = StepType(result["intervened_step"]["step_type"])
+                        step_data = result["intervened_step"].copy()
+                        step_data["step_type"] = StepType(step_data["step_type"])
+                        intervened = Step(**step_data)
                         lines.append(f"  Intervention: {self._summarize_step(intervened)}")
 
         lines.append("\n" + "=" * 60)

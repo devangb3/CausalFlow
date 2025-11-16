@@ -32,7 +32,7 @@ class CausalFlow:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "openai/gpt-4-turbo-preview",
+        model: str = "openai/gpt-5.1",
         num_critique_agents: int = 3
     ):
         """
@@ -60,17 +60,12 @@ class CausalFlow:
         self,
         trace: TraceLogger,
         skip_repair: bool = False,
-        skip_critique: bool = False
     ) -> Dict[str, Any]:
         """
         Analyze a failed agent execution trace.
-
-        This is the main entry point for CausalFlow analysis.
-
         Args:
             trace: The execution trace to analyze
             skip_repair: If True, skip counterfactual repair
-            skip_critique: If True, skip multi-agent critique
 
         Returns:
             Dictionary containing analysis results
@@ -83,7 +78,7 @@ class CausalFlow:
         # Step 1: Construct Causal Graph
         print("\n[1/5] Constructing causal graph...")
         self.causal_graph = CausalGraph(trace)
-        print(f"✓ Graph constructed: {self.causal_graph}")
+        print(f"Graph constructed: {self.causal_graph}")
 
         # Step 2: Causal Attribution
         print("\n[2/5] Performing causal attribution...")
@@ -94,9 +89,9 @@ class CausalFlow:
         )
         crs_scores = self.causal_attribution.compute_causal_responsibility()
         causal_steps = self.causal_attribution.get_causal_steps()
-        print(f"✓ Attribution complete: {len(causal_steps)} causal steps identified")
+        print(f"Attribution complete: {len(causal_steps)} causal steps identified")
 
-        # Step 3: Counterfactual Repair (optional)
+        # Step 3: Counterfactual Repair
         if not skip_repair:
             print("\n[3/5] Generating counterfactual repairs...")
             self.counterfactual_repair = CounterfactualRepair(
@@ -105,26 +100,22 @@ class CausalFlow:
                 llm_client=self.llm_client
             )
             repairs = self.counterfactual_repair.generate_repairs()
-            print(f"✓ Repair complete: {sum(len(r) for r in repairs.values())} repairs proposed")
+            print(f"Repair complete: {sum(len(r) for r in repairs.values())} repairs proposed")
         else:
             print("\n[3/5] Skipping counterfactual repair...")
             repairs = {}
 
-        # Step 4: Multi-Agent Critique (optional)
-        if not skip_critique:
-            print("\n[4/5] Running multi-agent critique...")
-            self.multi_agent_critique = MultiAgentCritique(
-                trace=trace,
-                causal_attribution=self.causal_attribution,
-                multi_agent_llm=self.multi_agent_llm
-            )
-            critiques = self.multi_agent_critique.critique_causal_attributions()
-            consensus_steps = self.multi_agent_critique.get_consensus_causal_steps()
-            print(f"✓ Critique complete: {len(consensus_steps)} steps confirmed by consensus")
-        else:
-            print("\n[4/5] Skipping multi-agent critique...")
-            critiques = {}
-            consensus_steps = []
+        # Step 4: Multi-Agent Critique
+        print("\n[4/5] Running multi-agent critique...")
+        self.multi_agent_critique = MultiAgentCritique(
+            trace=trace,
+            causal_attribution=self.causal_attribution,
+            multi_agent_llm=self.multi_agent_llm
+        )
+        critiques = self.multi_agent_critique.critique_causal_attributions()
+        consensus_steps = self.multi_agent_critique.get_consensus_causal_steps()
+        print(f"Critique complete: {len(consensus_steps)} steps confirmed by consensus")
+        
 
         # Step 5: Compile Results
         print("\n[5/5] Compiling results...")
@@ -132,18 +123,16 @@ class CausalFlow:
             crs_scores,
             causal_steps,
             repairs if not skip_repair else {},
-            critiques if not skip_critique else {},
-            consensus_steps if not skip_critique else []
+            critiques,
+            consensus_steps
         )
-        print("✓ Analysis complete!")
+        print("Analysis complete!")
 
         print("\n" + "=" * 60)
         print("Analysis Summary:")
         print(f"  - Causal steps: {len(causal_steps)}")
-        if not skip_critique:
-            print(f"  - Consensus steps: {len(consensus_steps)}")
-        if not skip_repair:
-            print(f"  - Repair proposals: {sum(len(r) for r in repairs.values())}")
+        print(f"  - Consensus steps: {len(consensus_steps)}")
+        print(f"  - Repair proposals: {sum(len(r) for r in repairs.values())}")
         print("=" * 60)
 
         return results
@@ -261,15 +250,6 @@ class CausalFlow:
         return results
 
     def generate_full_report(self, output_file: Optional[str] = None) -> str:
-        """
-        Generate a comprehensive human-readable report.
-
-        Args:
-            output_file: Optional file path to save the report
-
-        Returns:
-            Report string
-        """
         sections = []
 
         sections.append("=" * 70)
@@ -347,37 +327,3 @@ class CausalFlow:
         """String representation."""
         status = "ready" if self.trace is None else "analyzed"
         return f"CausalFlow(status={status}, model={self.llm_client.model})"
-
-
-# Convenience function for quick analysis
-def analyze_failed_trace(
-    trace: TraceLogger,
-    api_key: Optional[str] = None,
-    skip_repair: bool = False,
-    skip_critique: bool = False,
-    generate_report: bool = True,
-    report_file: Optional[str] = None
-) -> Dict[str, Any]:
-    """
-    Convenience function to analyze a failed trace with CausalFlow.
-
-    Args:
-        trace: The trace to analyze
-        api_key: OpenRouter API key
-        skip_repair: Skip counterfactual repair
-        skip_critique: Skip multi-agent critique
-        generate_report: Generate human-readable report
-        report_file: Optional file to save report
-
-    Returns:
-        Analysis results
-    """
-    flow = CausalFlow(api_key=api_key)
-    results = flow.analyze_trace(trace, skip_repair, skip_critique)
-
-    if generate_report:
-        report = flow.generate_full_report(report_file)
-        if not report_file:
-            print("\n" + report)
-
-    return results

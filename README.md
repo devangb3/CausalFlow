@@ -2,7 +2,7 @@
 
 CausalFlow is a unified framework for diagnosing agent failures using causal attribution, minimal counterfactual repair, and multi-agent critique. It helps you understand **why** your LLM agents fail by identifying causally responsible steps, proposing minimal fixes, and validating findings through multi-agent consensus.
 
-## 🌟 Features
+## Features
 
 - **Trace Extraction**: Capture every step of agent execution (reasoning, tool calls, memory access, etc.)
 - **Causal Graph Construction**: Build directed acyclic graphs (DAGs) encoding step dependencies
@@ -11,7 +11,7 @@ CausalFlow is a unified framework for diagnosing agent failures using causal att
 - **Multi-Agent Critique**: Validate causal claims through consensus of multiple LLMs
 - **Comprehensive Reports**: Human-readable analysis with detailed insights
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
@@ -22,7 +22,7 @@ CausalFlow is a unified framework for diagnosing agent failures using causal att
 - [Research Background](#research-background)
 - [License](#license)
 
-## 🚀 Installation
+## Installation
 
 ### Prerequisites
 
@@ -53,7 +53,7 @@ CausalFlow is a unified framework for diagnosing agent failures using causal att
    OPENROUTER_SECRET_KEY=your_api_key_here
    ```
 
-## ⚡ Quick Start
+## Quick Start
 
 ### Basic Usage
 
@@ -94,7 +94,7 @@ This will:
 3. Generate detailed reports
 4. Save results to JSON files
 
-## 🏗️ Architecture
+## Architecture
 
 CausalFlow consists of five major components:
 
@@ -418,90 +418,3 @@ Running CausalFlow generates several files:
 - **`trace.json`**: Serialized execution trace
 - **`causalflow_report.txt`**: Human-readable analysis report
 - **`causalflow_results.json`**: Structured results in JSON format
-
-### Sample Report Structure
-
-```
-==================================================================
-CAUSALFLOW COMPREHENSIVE ANALYSIS REPORT
-==================================================================
-
-TRACE SUMMARY
-- Total Steps: 6
-- Outcome: FAILURE
-- Final Answer: 6
-- Gold Answer: 8
-
-CAUSAL ATTRIBUTION REPORT
-- Causal steps: 2
-- Top causal step: Step 4 (CRS = 1.00)
-
-COUNTERFACTUAL REPAIR REPORT
-- Repairs proposed: 3
-- Best repair minimality: 0.85
-
-MULTI-AGENT CRITIQUE REPORT
-- Consensus steps: 1
-- Agreement score: 0.87
-```
-
-## 🛠️ Development
-
-### Project Structure
-
-```
-CF-Implementation/
-├── trace_logger.py          # Trace extraction
-├── causal_graph.py          # DAG construction
-├── causal_attribution.py    # Intervention-based attribution
-├── counterfactual_repair.py # Minimal repair generation
-├── multi_agent_critique.py  # Multi-agent validation
-├── llm_client.py            # OpenRouter API client
-├── causal_flow.py           # Main orchestrator
-├── example_agent.py         # Example agent implementation
-├── demo.py                  # Demo script
-├── requirements.txt         # Dependencies
-├── .env.example            # Environment template
-└── README.md               # This file
-```
-
-### Running Tests
-
-```bash
-# Run the demo
-python demo.py
-
-# Test individual components
-python -c "from trace_logger import TraceLogger; print('TraceLogger OK')"
-python -c "from causal_flow import CausalFlow; print('CausalFlow OK')"
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! This implementation follows the research proposal specifications detailed in `CausalFlow.pdf`.
-
-## 📄 License
-
-This project implements the CausalFlow framework as specified in the research proposal.
-
-## 🔗 Resources
-
-- **OpenRouter**: https://openrouter.ai/
-- **Research Proposal**: See `CausalFlow.pdf` for complete technical details
-- **Supported Models**: Any model available through OpenRouter API
-
-## ⚠️ Important Notes
-
-1. **API Costs**: CausalFlow makes multiple LLM API calls. Be aware of usage costs on OpenRouter.
-
-2. **Analysis Time**: Full analysis (with critique) can take several minutes depending on trace complexity.
-
-3. **API Key Security**: Never commit your `.env` file or expose your API key.
-
-## 📧 Support
-
-For issues, questions, or contributions, please open an issue on the repository.
-
----
-
-**Built with CausalFlow** - Understanding why agents fail, one trace at a time.

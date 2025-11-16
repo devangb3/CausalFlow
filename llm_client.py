@@ -23,7 +23,7 @@ class LLMClient:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "openai/gpt-4-turbo-preview",
+        model: str = "google/gemini-2.5-flash-lite",
         temperature: float = 0.7,
         max_tokens: int = 2000
     ):
@@ -32,16 +32,13 @@ class LLMClient:
 
         Args:
             api_key: OpenRouter API key (if None, reads from OPENROUTER_SECRET_KEY env var)
-            model: Model identifier (default: GPT-4 Turbo)
+            model: Model identifier (default: Gemini 2.5 Flash Lite)
             temperature: Sampling temperature (0.0 to 1.0)
             max_tokens: Maximum tokens to generate
         """
         self.api_key = api_key or os.getenv("OPENROUTER_SECRET_KEY")
         if not self.api_key:
-            raise ValueError(
-                "OPENROUTER_SECRET_KEY not found. "
-                "Please set it in your .env file or pass it as api_key parameter."
-            )
+            raise ValueError("OPENROUTER_SECRET_KEY not found. ")
 
         self.model = model
         self.temperature = temperature
