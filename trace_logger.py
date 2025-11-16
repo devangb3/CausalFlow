@@ -75,16 +75,6 @@ class TraceLogger:
         self.gold_answer: Optional[str] = None
 
     def log_reasoning(self, text: str, dependencies: List[int] = None) -> int:
-        """
-        Log a reasoning step (chain-of-thought, planning, deliberation).
-
-        Args:
-            text: The reasoning text generated
-            dependencies: List of step IDs this reasoning depends on
-
-        Returns:
-            The step ID of this reasoning step
-        """
         step = Step(
             step_id=self.current_step_id,
             step_type=StepType.REASONING,
@@ -97,17 +87,6 @@ class TraceLogger:
 
     def log_tool_call(self, tool_name: str, tool_args: Dict[str, Any],
                       dependencies: List[int] = None) -> int:
-        """
-        Log a tool invocation.
-
-        Args:
-            tool_name: Name of the tool being called
-            tool_args: Arguments passed to the tool
-            dependencies: List of step IDs this tool call depends on
-
-        Returns:
-            The step ID of this tool call
-        """
         step = Step(
             step_id=self.current_step_id,
             step_type=StepType.TOOL_CALL,
@@ -120,16 +99,6 @@ class TraceLogger:
         return step.step_id
 
     def log_tool_response(self, tool_output: Any, dependencies: List[int]) -> int:
-        """
-        Log a tool's response.
-
-        Args:
-            tool_output: The output returned by the tool
-            dependencies: List of step IDs (typically the tool call)
-
-        Returns:
-            The step ID of this tool response
-        """
         step = Step(
             step_id=self.current_step_id,
             step_type=StepType.TOOL_RESPONSE,
@@ -142,17 +111,6 @@ class TraceLogger:
 
     def log_memory_access(self, memory_key: str, memory_value: Any,
                           dependencies: List[int] = None) -> int:
-        """
-        Log a memory retrieval operation.
-
-        Args:
-            memory_key: The key used to access memory
-            memory_value: The value retrieved from memory
-            dependencies: List of step IDs this memory access depends on
-
-        Returns:
-            The step ID of this memory access
-        """
         step = Step(
             step_id=self.current_step_id,
             step_type=StepType.MEMORY_ACCESS,
@@ -165,16 +123,6 @@ class TraceLogger:
         return step.step_id
 
     def log_environment_action(self, action: str, dependencies: List[int] = None) -> int:
-        """
-        Log an action taken in an environment (e.g., ALFWorld).
-
-        Args:
-            action: The action taken (e.g., "open fridge")
-            dependencies: List of step IDs this action depends on
-
-        Returns:
-            The step ID of this action
-        """
         step = Step(
             step_id=self.current_step_id,
             step_type=StepType.ENVIRONMENT_ACTION,
@@ -187,16 +135,6 @@ class TraceLogger:
 
     def log_environment_observation(self, observation: str,
                                    dependencies: List[int]) -> int:
-        """
-        Log an observation from the environment.
-
-        Args:
-            observation: The environment's response
-            dependencies: List of step IDs (typically the action)
-
-        Returns:
-            The step ID of this observation
-        """
         step = Step(
             step_id=self.current_step_id,
             step_type=StepType.ENVIRONMENT_OBSERVATION,
@@ -208,16 +146,7 @@ class TraceLogger:
         return step.step_id
 
     def log_final_answer(self, answer: str, dependencies: List[int] = None) -> int:
-        """
-        Log the agent's final answer.
 
-        Args:
-            answer: The final answer provided by the agent
-            dependencies: List of step IDs that led to this answer
-
-        Returns:
-            The step ID of the final answer
-        """
         self.final_answer = answer
         step = Step(
             step_id=self.current_step_id,
@@ -230,53 +159,22 @@ class TraceLogger:
         return step.step_id
 
     def record_outcome(self, final_answer: str, gold_answer: str):
-        """
-        Record the final outcome of the agent's execution.
 
-        Args:
-            final_answer: The agent's final answer
-            gold_answer: The correct/expected answer
-        """
         self.final_answer = final_answer
         self.gold_answer = gold_answer
         self.success = self._compare_answers(final_answer, gold_answer)
 
     def _compare_answers(self, final_answer: str, gold_answer: str) -> bool:
-        """
-        Compare the final answer with the gold answer.
-
-        Args:
-            final_answer: The agent's answer
-            gold_answer: The correct answer
-
-        Returns:
-            True if answers match, False otherwise
-        """
         # Simple exact match (can be enhanced with fuzzy matching)
         return str(final_answer).strip().lower() == str(gold_answer).strip().lower()
 
     def get_step(self, step_id: int) -> Optional[Step]:
-        """
-        Retrieve a step by its ID.
-
-        Args:
-            step_id: The ID of the step to retrieve
-
-        Returns:
-            The step if found, None otherwise
-        """
         for step in self.steps:
             if step.step_id == step_id:
                 return step
         return None
 
     def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert the entire trace to a dictionary.
-
-        Returns:
-            Dictionary representation of the trace
-        """
         return {
             "steps": [step.to_dict() for step in self.steps],
             "success": self.success,
@@ -286,15 +184,6 @@ class TraceLogger:
         }
 
     def to_json(self, filepath: str = None) -> str:
-        """
-        Serialize the trace to JSON.
-
-        Args:
-            filepath: Optional path to save the JSON file
-
-        Returns:
-            JSON string representation
-        """
         json_str = json.dumps(self.to_dict(), indent=2)
 
         if filepath:
@@ -305,15 +194,6 @@ class TraceLogger:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'TraceLogger':
-        """
-        Reconstruct a TraceLogger from a dictionary.
-
-        Args:
-            data: Dictionary representation of a trace
-
-        Returns:
-            Reconstructed TraceLogger instance
-        """
         logger = cls()
 
         for step_data in data.get("steps", []):
@@ -341,21 +221,6 @@ class TraceLogger:
 
     @classmethod
     def from_json(cls, filepath: str) -> 'TraceLogger':
-        """
-        Load a TraceLogger from a JSON file.
-
-        Args:
-            filepath: Path to the JSON file
-
-        Returns:
-            Reconstructed TraceLogger instance
-        """
         with open(filepath, 'r') as f:
             data = json.load(f)
         return cls.from_dict(data)
-
-    def __repr__(self) -> str:
-        """String representation of the trace logger."""
-        return (f"TraceLogger(steps={len(self.steps)}, "
-                f"success={self.success}, "
-                f"final_answer='{self.final_answer}')")

@@ -1,9 +1,3 @@
-"""
-MultiAgentCritique: Validates causal attributions through multi-agent consensus.
-
-This module implements the multi-agent critique component of CausalFlow
-as specified in Section 8 of the research proposal.
-"""
 
 from typing import Dict, List, Any, Tuple, Optional
 from trace_logger import TraceLogger, Step
@@ -12,7 +6,6 @@ from llm_client import MultiAgentLLM, LLMClient
 
 
 class CritiqueResult:
-    """Represents the result of a multi-agent critique."""
 
     def __init__(
         self,
@@ -22,24 +15,14 @@ class CritiqueResult:
         consensus_score: float,
         final_verdict: bool
     ):
-        """
-        Initialize critique result.
 
-        Args:
-            step_id: The step being critiqued
-            proposed_by: Which agent proposed this as causal
-            critiques: List of critique responses from agents
-            consensus_score: Agreement score (0-1)
-            final_verdict: Whether the step is confirmed as causal
-        """
-        self.step_id = step_id
-        self.proposed_by = proposed_by
-        self.critiques = critiques
-        self.consensus_score = consensus_score
-        self.final_verdict = final_verdict
+        self.step_id = step_id #The step that is being critiqued
+        self.proposed_by = proposed_by #Which agent proposed this as causal
+        self.critiques = critiques #List of critique responses from agents
+        self.consensus_score = consensus_score # Agreement score (0-1)
+        self.final_verdict = final_verdict #Whether the step is confirmed as causal
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
         return {
             "step_id": self.step_id,
             "proposed_by": self.proposed_by,
@@ -47,13 +30,6 @@ class CritiqueResult:
             "consensus_score": self.consensus_score,
             "final_verdict": self.final_verdict
         }
-
-    def __repr__(self) -> str:
-        """String representation."""
-        return (f"CritiqueResult(step_id={self.step_id}, "
-                f"consensus={self.consensus_score:.2f}, "
-                f"verdict={self.final_verdict})")
-
 
 class MultiAgentCritique:
     """
@@ -75,15 +51,6 @@ class MultiAgentCritique:
         multi_agent_llm: Optional[MultiAgentLLM] = None,
         num_agents: int = 3
     ):
-        """
-        Initialize multi-agent critique system.
-
-        Args:
-            trace: The execution trace
-            causal_attribution: Causal attribution results
-            multi_agent_llm: Optional multi-agent LLM system
-            num_agents: Number of agents to use (if creating new multi-agent system)
-        """
         self.trace = trace
         self.causal_attribution = causal_attribution
 
@@ -97,36 +64,17 @@ class MultiAgentCritique:
         self.critique_results: Dict[int, CritiqueResult] = {}
 
     def critique_causal_attributions(
-        self,
-        step_ids: Optional[List[int]] = None
+        self
     ) -> Dict[int, CritiqueResult]:
-        """
-        Perform multi-agent critique on causal attributions.
+        causal_steps = self.causal_attribution.get_causal_steps()
 
-        Args:
-            step_ids: Optional list of step IDs to critique (if None, uses all causal steps)
-
-        Returns:
-            Dictionary mapping step_id to critique results
-        """
-        if step_ids is None:
-            step_ids = self.causal_attribution.get_causal_steps()
-
-        for step_id in step_ids:
+        for step_id in causal_steps:
             self.critique_results[step_id] = self._critique_step(step_id)
 
         return self.critique_results
 
     def _critique_step(self, step_id: int) -> CritiqueResult:
-        """
-        Perform multi-agent critique on a single step.
 
-        Args:
-            step_id: The step to critique
-
-        Returns:
-            Critique result
-        """
         step = self.trace.get_step(step_id)
         if not step:
             return CritiqueResult(step_id, "unknown", [], 0.0, False)
@@ -181,18 +129,7 @@ class MultiAgentCritique:
         role: str,
         previous_critique: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Generate a critique from a specific agent.
 
-        Args:
-            step_id: The step being critiqued
-            agent_index: Index of the agent to use
-            role: Role of this agent (critic, meta-critic)
-            previous_critique: Optional previous critique to consider
-
-        Returns:
-            Dictionary with critique response, agreement, and confidence
-        """
         step = self.trace.get_step(step_id)
         crs_score = self.causal_attribution.crs_scores.get(step_id, 0.0)
 
@@ -429,8 +366,3 @@ Be thorough and critical. Challenge weak causal claims.
         lines.append("=" * 60)
 
         return "\n".join(lines)
-
-    def __repr__(self) -> str:
-        """String representation."""
-        return (f"MultiAgentCritique(num_agents={self.num_agents}, "
-                f"critiqued_steps={len(self.critique_results)})")

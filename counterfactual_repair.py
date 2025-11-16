@@ -50,12 +50,6 @@ class Repair:
             "success_predicted": self.success_predicted
         }
 
-    def __repr__(self) -> str:
-        """String representation."""
-        return (f"Repair(step_id={self.step_id}, "
-                f"minimality={self.minimality_score:.2f}, "
-                f"success={self.success_predicted})")
-
 
 class CounterfactualRepair:
     """
@@ -329,15 +323,6 @@ Step {step.step_id} ({step.step_type.value}):
         return self.causal_attribution._llm_predict_outcome(step_id, repaired_step)
 
     def get_best_repair(self, step_id: int) -> Optional[Repair]:
-        """
-        Get the best (most minimal, successful) repair for a step.
-
-        Args:
-            step_id: The step ID
-
-        Returns:
-            Best repair, or None if no successful repairs exist
-        """
         if step_id not in self.repairs:
             return None
 
@@ -346,31 +331,24 @@ Step {step.step_id} ({step.step_type.value}):
 
         if not successful:
             # If no successful repairs, return most minimal one
-            return self.repairs[step_id][0] if self.repairs[step_id] else None
+            return None
 
         # Return most minimal successful repair
         return max(successful, key=lambda r: r.minimality_score)
 
     def get_all_best_repairs(self) -> Dict[int, Repair]:
-        """
-        Get the best repair for each step.
 
-        Returns:
-            Dictionary mapping step_id to best repair
-        """
-        return {
-            step_id: self.get_best_repair(step_id)
-            for step_id in self.repairs.keys()
-            if self.get_best_repair(step_id) is not None
-        }
+        best_repairs = {}
+
+        for step_id in self.repairs.keys():
+            best_repair = self.get_best_repair(step_id)
+            if best_repair is not None:
+                best_repairs[step_id] = best_repair
+
+        return best_repairs
 
     def generate_report(self) -> str:
-        """
-        Generate a human-readable report of repairs.
 
-        Returns:
-            Report string
-        """
         lines = ["=" * 60]
         lines.append("COUNTERFACTUAL REPAIR REPORT")
         lines.append("=" * 60)
@@ -403,8 +381,3 @@ Step {step.step_id} ({step.step_type.value}):
         lines.append("\n" + "=" * 60)
 
         return "\n".join(lines)
-
-    def __repr__(self) -> str:
-        """String representation."""
-        total_repairs = sum(len(repairs) for repairs in self.repairs.values())
-        return f"CounterfactualRepair(steps={len(self.repairs)}, total_proposals={total_repairs})"

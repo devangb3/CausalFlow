@@ -20,36 +20,19 @@ import json
 
 
 class CausalFlow:
-    """
-    Main orchestrator for the CausalFlow framework.
-
-    Provides a unified interface for diagnosing agent failures using:
-    - Causal attribution via interventions
-    - Minimal counterfactual repair
-    - Multi-agent critique for robustness
-    """
-
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: str = "openai/gpt-5.1",
-        num_critique_agents: int = 3
+        num_critique_agents: int = 3 #Number of agents for multi-agent critique
     ):
-        """
-        Initialize CausalFlow.
 
-        Args:
-            api_key: OpenRouter API key
-            model: LLM model to use
-            num_critique_agents: Number of agents for multi-agent critique
-        """
         self.llm_client = LLMClient(api_key=api_key, model=model)
         self.multi_agent_llm = MultiAgentLLM(
             num_agents=num_critique_agents,
             api_key=api_key
         )
 
-        # Components (initialized during analysis)
         self.trace: Optional[TraceLogger] = None
         self.causal_graph: Optional[CausalGraph] = None
         self.causal_attribution: Optional[CausalAttribution] = None
@@ -61,26 +44,15 @@ class CausalFlow:
         trace: TraceLogger,
         skip_repair: bool = False,
     ) -> Dict[str, Any]:
-        """
-        Analyze a failed agent execution trace.
-        Args:
-            trace: The execution trace to analyze
-            skip_repair: If True, skip counterfactual repair
-
-        Returns:
-            Dictionary containing analysis results
-        """
         self.trace = trace
 
         print("CausalFlow Analysis Started")
         print("=" * 60)
 
-        # Step 1: Construct Causal Graph
         print("\n[1/5] Constructing causal graph...")
         self.causal_graph = CausalGraph(trace)
         print(f"Graph constructed: {self.causal_graph}")
 
-        # Step 2: Causal Attribution
         print("\n[2/5] Performing causal attribution...")
         self.causal_attribution = CausalAttribution(
             trace=trace,
@@ -91,7 +63,6 @@ class CausalFlow:
         causal_steps = self.causal_attribution.get_causal_steps()
         print(f"Attribution complete: {len(causal_steps)} causal steps identified")
 
-        # Step 3: Counterfactual Repair
         if not skip_repair:
             print("\n[3/5] Generating counterfactual repairs...")
             self.counterfactual_repair = CounterfactualRepair(
@@ -105,7 +76,6 @@ class CausalFlow:
             print("\n[3/5] Skipping counterfactual repair...")
             repairs = {}
 
-        # Step 4: Multi-Agent Critique
         print("\n[4/5] Running multi-agent critique...")
         self.multi_agent_critique = MultiAgentCritique(
             trace=trace,
@@ -117,7 +87,6 @@ class CausalFlow:
         print(f"Critique complete: {len(consensus_steps)} steps confirmed by consensus")
         
 
-        # Step 5: Compile Results
         print("\n[5/5] Compiling results...")
         results = self._compile_results(
             crs_scores,
@@ -137,46 +106,6 @@ class CausalFlow:
 
         return results
 
-    def analyze_trace_from_dict(
-        self,
-        trace_dict: Dict[str, Any],
-        skip_repair: bool = False,
-        skip_critique: bool = False
-    ) -> Dict[str, Any]:
-        """
-        Analyze a trace from a dictionary representation.
-
-        Args:
-            trace_dict: Dictionary representation of a trace
-            skip_repair: If True, skip counterfactual repair
-            skip_critique: If True, skip multi-agent critique
-
-        Returns:
-            Analysis results
-        """
-        trace = TraceLogger.from_dict(trace_dict)
-        return self.analyze_trace(trace, skip_repair, skip_critique)
-
-    def analyze_trace_from_file(
-        self,
-        filepath: str,
-        skip_repair: bool = False,
-        skip_critique: bool = False
-    ) -> Dict[str, Any]:
-        """
-        Analyze a trace from a JSON file.
-
-        Args:
-            filepath: Path to the trace JSON file
-            skip_repair: If True, skip counterfactual repair
-            skip_critique: If True, skip multi-agent critique
-
-        Returns:
-            Analysis results
-        """
-        trace = TraceLogger.from_json(filepath)
-        return self.analyze_trace(trace, skip_repair, skip_critique)
-
     def _compile_results(
         self,
         crs_scores: Dict[int, float],
@@ -185,19 +114,7 @@ class CausalFlow:
         critiques: Dict[int, Any],
         consensus_steps: List[int]
     ) -> Dict[str, Any]:
-        """
-        Compile all analysis results into a structured dictionary.
 
-        Args:
-            crs_scores: Causal Responsibility Scores
-            causal_steps: List of causal step IDs
-            repairs: Repair proposals
-            critiques: Critique results
-            consensus_steps: Consensus causal steps
-
-        Returns:
-            Compiled results dictionary
-        """
         results = {
             "trace_summary": {
                 "total_steps": len(self.trace.steps),
@@ -289,7 +206,6 @@ class CausalFlow:
         return report
 
     def _generate_trace_summary(self) -> str:
-        """Generate a summary of the trace."""
         lines = ["TRACE SUMMARY"]
         lines.append("-" * 70)
         lines.append(f"Total Steps: {len(self.trace.steps)}")
@@ -301,12 +217,7 @@ class CausalFlow:
         return "\n".join(lines)
 
     def export_results(self, filepath: str):
-        """
-        Export analysis results to a JSON file.
 
-        Args:
-            filepath: Path to save the results
-        """
         if not self.causal_attribution:
             raise ValueError("No analysis has been performed yet. Call analyze_trace() first.")
 
@@ -322,8 +233,3 @@ class CausalFlow:
             json.dump(results, f, indent=2)
 
         print(f"Results exported to: {filepath}")
-
-    def __repr__(self) -> str:
-        """String representation."""
-        status = "ready" if self.trace is None else "analyzed"
-        return f"CausalFlow(status={status}, model={self.llm_client.model})"

@@ -304,10 +304,3 @@ class CausalGraph:
             "is_dag": nx.is_directed_acyclic_graph(self.graph),
             "critical_steps": len(self.get_critical_steps())
         }
-
-    def __repr__(self) -> str:
-        """String representation of the causal graph."""
-        stats = self.get_statistics()
-        return (f"CausalGraph(steps={stats['total_steps']}, "
-                f"edges={stats['total_edges']}, "
-                f"max_depth={stats['max_depth']})")

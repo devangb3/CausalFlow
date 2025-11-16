@@ -1,13 +1,3 @@
-"""
-Complex Example: Demonstrates CausalFlow with a difficult multi-step problem.
-
-This example shows a more realistic failure scenario with:
-- Longer reasoning chains (14+ steps)
-- Multiple operations (percentages, addition, subtraction)
-- Error propagation through correct intermediate steps
-- Subtle reasoning errors that compound over time
-"""
-
 import os
 from dotenv import load_dotenv
 import sys
@@ -143,9 +133,8 @@ def create_complex_failed_trace():
 
 
 def demo_complex_analysis():
-    """Run CausalFlow analysis on the complex example."""
     print("\n" + "=" * 70)
-    print("COMPLEX EXAMPLE: Multi-step Inventory Problem")
+    print("EXAMPLE: Multi-step Inventory Problem")
     print("=" * 70)
 
     # Check if API key is set
@@ -154,29 +143,13 @@ def demo_complex_analysis():
 
     if not api_key:
         print("\nERROR: OPENROUTER_SECRET_KEY not found in .env file")
-        print("Please create a .env file with your OpenRouter API key.")
         return
 
     # Create the trace
     trace = create_complex_failed_trace()
 
-    print("\n" + "-" * 70)
-    print("TRACE SUMMARY")
-    print("-" * 70)
-    print(f"  Total Steps: {len(trace.steps)}")
-    print(f"  Success: {trace.success}")
-    print(f"  Final Answer: {trace.final_answer}")
-    print(f"  Gold Answer: {trace.gold_answer}")
-    print(f"  Error Margin: {abs(int(trace.final_answer) - int(trace.gold_answer))} items")
-
     # Save trace
     trace.to_json("examples/complex_trace.json")
-    print("\n  Trace saved to: examples/complex_trace.json")
-
-    print("\n" + "-" * 70)
-    print("RUNNING CAUSALFLOW ANALYSIS")
-    print("-" * 70)
-
     try:
         # Initialize CausalFlow
         flow = CausalFlow(api_key=api_key)
@@ -199,7 +172,6 @@ def demo_complex_analysis():
         print("ANALYSIS COMPLETE")
         print("=" * 70)
 
-        # Print summary
         print("\n" + "-" * 70)
         print("KEY FINDINGS")
         print("-" * 70)
@@ -221,7 +193,6 @@ def demo_complex_analysis():
 
 
 def main():
-    """Run the complex example demonstration."""
     demo_complex_analysis()
 
 

@@ -1,8 +1,5 @@
 """
 CausalAttribution: Identifies which steps caused agent failures through interventions.
-
-This module implements the causal attribution via interventions component of CausalFlow
-as specified in Section 5 of the research proposal.
 """
 
 import copy
@@ -27,41 +24,20 @@ class CausalAttribution:
         llm_client: LLMClient,
         re_executor: Optional[Callable] = None
     ):
-        """
-        Initialize causal attribution analyzer.
 
-        Args:
-            trace: The failed execution trace
-            causal_graph: The causal graph constructed from the trace
-            llm_client: LLM client for generating interventions
-            re_executor: Optional function to re-execute agent from a given step
-        """
-        self.trace = trace
-        self.causal_graph = causal_graph
-        self.llm_client = llm_client
-        self.re_executor = re_executor
+        self.trace = trace #The failed execution trace
+        self.causal_graph = causal_graph #The causal graph constructed from the trace
+        self.llm_client = llm_client #LLM client for generating interventions
+        self.re_executor = re_executor #Optional function to re-execute agent from a given step
 
-        # Causal Responsibility Scores for each step
-        self.crs_scores: Dict[int, float] = {}
-
-        # Store intervention results
-        self.intervention_results: Dict[int, Dict[str, Any]] = {}
+        self.crs_scores: Dict[int, float] = {} #Causal Responsibility Scores for each step
+        self.intervention_results: Dict[int, Dict[str, Any]] = {} #Store intervention results
 
     def compute_causal_responsibility(
-        self,
-        step_ids: Optional[List[int]] = None
+        self
     ) -> Dict[int, float]:
-        """
-        Compute Causal Responsibility Score (CRS) for each step.
-
-        Args:
-            step_ids: Optional list of step IDs to analyze (if None, analyzes all)
-
-        Returns:
-            Dictionary mapping step_id to CRS score (0 or 1)
-        """
-        if step_ids is None:
-            step_ids = [step.step_id for step in self.trace.steps]
+       
+        step_ids = [step.step_id for step in self.trace.steps]
 
         for step_id in step_ids:
             self.crs_scores[step_id] = self._intervene_on_step(step_id)
@@ -92,7 +68,6 @@ class CausalAttribution:
         intervened_step = self._generate_intervention(original_step)
 
         if intervened_step is None:
-            # Could not generate valid intervention
             self.intervention_results[step_id] = {
                 "success": False,
                 "reason": "Could not generate intervention"
@@ -102,7 +77,6 @@ class CausalAttribution:
         # Simulate re-execution with intervention
         new_outcome = self._simulate_reexecution(step_id, intervened_step)
 
-        # Store results
         self.intervention_results[step_id] = {
             "original_step": original_step.to_dict(),
             "intervened_step": intervened_step.to_dict(),
@@ -114,15 +88,6 @@ class CausalAttribution:
         return 1.0 if new_outcome else 0.0
 
     def _generate_intervention(self, step: Step) -> Optional[Step]:
-        """
-        Generate an corrected version for a step.
-
-        Args:
-            step: The original step
-
-        Returns:
-            Modified step, or None if intervention cannot be generated
-        """
         intervention_prompt = self._create_intervention_prompt(step)
 
         try:
@@ -188,16 +153,6 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
         return prompt
 
     def _get_step_context(self, step: Step, max_context_steps: int = 3) -> str:
-        """
-        Get context from previous steps.
-
-        Args:
-            step: The step to get context for
-            max_context_steps: Maximum number of previous steps to include
-
-        Returns:
-            Context string
-        """
         dependencies = step.dependencies
         if not dependencies:
             return "No previous dependencies."
@@ -212,15 +167,7 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
         return "\n".join(context_lines)
 
     def _summarize_step(self, step: Step) -> str:
-        """
-        Create a brief summary of a step.
 
-        Args:
-            step: The step to summarize
-
-        Returns:
-            Summary string
-        """
         if step.step_type == StepType.REASONING:
             text = step.text[:1000] + "..." if len(step.text) > 1000 else step.text
             return f"[Reasoning] {text}"
@@ -241,27 +188,72 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
             return f"[{step.step_type.value}]"
 
     def _parse_tool_args(self, text: str) -> Dict[str, Any]:
-        """
-        Parse tool arguments from LLM response.
-
-        Args:
-            text: Text containing tool arguments
-
-        Returns:
-            Parsed arguments dictionary
-        """
         import json
         import re
 
-        # Try to find JSON in the text
-        json_match = re.search(r'\{.*\}', text, re.DOTALL)
-        if json_match:
+        # Helper: try parsing a candidate string as JSON (object)
+        def try_parse_json_object(candidate: str):
             try:
-                return json.loads(json_match.group())
-            except json.JSONDecodeError:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
                 pass
+            return None
 
-        # Fallback: return as single argument
+        # 1. Try directly parsing the entire text as JSON
+        direct = try_parse_json_object(text.strip())
+        if direct is not None:
+            return direct
+
+        # 2. Try to find largest JSON object substring by bracket matching
+        brackets = []
+        for i, c in enumerate(text):
+            if c == '{':
+                brackets.append(i)
+            elif c == '}':
+                if brackets:
+                    start = brackets.pop(0)
+                    end = i + 1
+                    candidate = text[start:end]
+                    parsed = try_parse_json_object(candidate)
+                    if parsed is not None:
+                        return parsed
+
+        # 3. Try all JSON blocks found via regex
+        json_objects = re.findall(r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}', text, re.DOTALL)
+        for candidate in json_objects:
+            parsed = try_parse_json_object(candidate)
+            if parsed is not None:
+                return parsed
+
+        # 4. Try to find KEY: VALUE pairs and build a dict
+        # Looks for lines like: key: value, key = value, "key": value, etc.
+        arg_dict = {}
+        key_value_pattern = re.compile(
+            r'["\']?([a-zA-Z0-9_\-]+)["\']?\s*[:=]\s*([^\n,]+)'
+        )
+        matches = key_value_pattern.findall(text)
+        for k, v in matches:
+            v = v.strip().strip('",\'')
+            # Attempt to interpret as number or bool
+            if v.lower() == 'true':
+                v = True
+            elif v.lower() == 'false':
+                v = False
+            elif v.isdigit():
+                v = int(v)
+            else:
+                try:
+                    v_float = float(v)
+                    v = v_float
+                except Exception:
+                    pass
+            arg_dict[k.strip()] = v
+        if arg_dict:
+            return arg_dict
+
+        # 5. Fallback: return as single value argument
         return {"value": text.strip()}
 
     def _simulate_reexecution(self, step_id: int, intervened_step: Step) -> bool:
@@ -287,9 +279,9 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
                 return False
 
         # Otherwise, use LLM to predict outcome
-        return self._llm_predict_outcome(step_id, intervened_step)
+        return self._llm_predict_outcome(step_id, intervened_step, self.trace.problem_statement)
 
-    def _llm_predict_outcome(self, step_id: int, intervened_step: Step) -> bool:
+    def _llm_predict_outcome(self, step_id: int, intervened_step: Step, problem_statement: str) -> bool:
         """
         Use LLM to predict if the intervention would lead to success.
 
@@ -302,6 +294,7 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
         """
         prompt = f"""You are analyzing an agent execution trace.
 
+Problem Statement: {problem_statement}
 Original Final Answer: {self.trace.final_answer}
 Correct Answer: {self.trace.gold_answer}
 Original Outcome: FAILED
@@ -327,31 +320,14 @@ Descendants of this step (affected by the intervention):
         except Exception:
             return False
 
-    def get_causal_steps(self, threshold: float = 0.5) -> List[int]:
-        """
-        Get step IDs that are causally responsible for failure.
-
-        Args:
-            threshold: Minimum CRS score to be considered causal
-
-        Returns:
-            List of step IDs with CRS >= threshold
-        """
+    def get_causal_steps(self) -> List[int]:
         return [
             step_id for step_id, score in self.crs_scores.items()
-            if score >= threshold
+            if score >= 0.5
         ]
 
     def get_top_causal_steps(self, n: int = 3) -> List[tuple]:
-        """
-        Get top N causal steps by CRS score.
 
-        Args:
-            n: Number of top steps to return
-
-        Returns:
-            List of (step_id, crs_score) tuples, sorted by score
-        """
         sorted_steps = sorted(
             self.crs_scores.items(),
             key=lambda x: x[1],
@@ -396,8 +372,3 @@ Descendants of this step (affected by the intervention):
         lines.append("\n" + "=" * 60)
 
         return "\n".join(lines)
-
-    def __repr__(self) -> str:
-        """String representation."""
-        num_causal = len(self.get_causal_steps())
-        return f"CausalAttribution(steps_analyzed={len(self.crs_scores)}, causal_steps={num_causal})"
