@@ -22,7 +22,8 @@ from trace_logger import TraceLogger
 
 def create_sample_failed_trace():
 
-    trace = TraceLogger()
+    problem_statement = "John has 5 apples and buys 3 more. How many apples does he have?"
+    trace = TraceLogger(problem_statement=problem_statement)
 
     # Step 0: Initial reasoning (correct)
     step_0 = trace.log_reasoning(

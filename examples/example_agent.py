@@ -48,6 +48,9 @@ class MathReasoningAgent:
         Returns:
             The agent's final answer
         """
+        # Initialize a new trace with the problem statement
+        self.trace_logger = TraceLogger(problem_statement=problem)
+
         print(f"\nSolving: {problem}")
         print("-" * 60)
 
