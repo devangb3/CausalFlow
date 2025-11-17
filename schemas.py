@@ -135,12 +135,27 @@ class LLMSchemas:
     def get_response_format(schema_name: str) -> Dict[str, Any]:
         model = LLMSchemas.get_model(schema_name)
 
-        # Generate JSON schema from Pydantic model
-        json_schema = model.model_json_schema()
+        # Generate JSON schema from Pydantic model with mode='serialization'
+        # This produces cleaner schemas compatible with more providers
+        json_schema = model.model_json_schema(mode='serialization')
 
-        # Remove title and other metadata that might interfere
+        # Clean up schema for compatibility with Google Gemini and other providers
+        # Remove $defs and flatten the schema
+        if "$defs" in json_schema:
+            defs = json_schema.pop("$defs")
+            # Inline any references
+            LLMSchemas._inline_refs(json_schema, defs)
+
+        # Simplify schema for Google Gemini compatibility
+        LLMSchemas._simplify_schema(json_schema)
+
+        # Remove metadata that might interfere
         json_schema.pop("title", None)
         json_schema.pop("description", None)
+
+        # Ensure additionalProperties is set
+        if "additionalProperties" not in json_schema:
+            json_schema["additionalProperties"] = False
 
         return {
             "type": "json_schema",
@@ -150,6 +165,82 @@ class LLMSchemas:
                 "schema": json_schema
             }
         }
+
+    @staticmethod
+    def _simplify_schema(schema: Dict[str, Any]) -> None:
+        """
+        Simplify schema for Google Gemini compatibility.
+        Removes anyOf, oneOf, allOf, and simplifies optional fields.
+        Modifies schema in-place.
+
+        Args:
+            schema: The schema object to simplify
+        """
+        if isinstance(schema, dict):
+            # Remove title from all properties
+            schema.pop("title", None)
+
+            # Handle anyOf for optional fields (common pattern: anyOf with null)
+            if "anyOf" in schema:
+                any_of = schema.pop("anyOf")
+                # Find the non-null type
+                for option in any_of:
+                    if option.get("type") != "null":
+                        # Use the non-null type and mark as nullable
+                        schema.update(option)
+                        # Keep default if it exists
+                        break
+
+            # Handle oneOf similarly
+            if "oneOf" in schema:
+                one_of = schema.pop("oneOf")
+                # Just use the first non-null option
+                for option in one_of:
+                    if option.get("type") != "null":
+                        schema.update(option)
+                        break
+
+            # Recursively process nested objects
+            for key, value in list(schema.items()):
+                if isinstance(value, dict):
+                    LLMSchemas._simplify_schema(value)
+                elif isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, dict):
+                            LLMSchemas._simplify_schema(item)
+
+    @staticmethod
+    def _inline_refs(schema: Dict[str, Any], defs: Dict[str, Any]) -> None:
+        """
+        Recursively inline $ref references in a schema.
+        Modifies schema in-place.
+
+        Args:
+            schema: The schema object to process
+            defs: The definitions to inline
+        """
+        if isinstance(schema, dict):
+            if "$ref" in schema:
+                # Extract the reference name
+                ref = schema["$ref"]
+                if ref.startswith("#/$defs/"):
+                    def_name = ref.replace("#/$defs/", "")
+                    if def_name in defs:
+                        # Replace the reference with the actual definition
+                        definition = defs[def_name].copy()
+                        schema.clear()
+                        schema.update(definition)
+                        # Recursively inline any nested refs
+                        LLMSchemas._inline_refs(schema, defs)
+            else:
+                # Recursively process nested objects
+                for key, value in list(schema.items()):
+                    if isinstance(value, dict):
+                        LLMSchemas._inline_refs(value, defs)
+                    elif isinstance(value, list):
+                        for item in value:
+                            if isinstance(item, dict):
+                                LLMSchemas._inline_refs(item, defs)
 
     @staticmethod
     def parse_response(schema_name: str, response_data: Dict[str, Any]) -> BaseModel:
