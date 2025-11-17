@@ -179,7 +179,6 @@ PROBLEM STATEMENT:
 EXECUTION TRACE SUMMARY:
 - Task outcome: FAILED
 - Final answer: {self.trace.final_answer}
-- Correct answer: {self.trace.gold_answer}
 - Total steps: {len(self.trace.steps)}
 
 CAUSAL CLAIM:
@@ -226,27 +225,11 @@ Be thorough and critical. Challenge weak causal claims.
         return prompt
 
     def _summarize_step(self, step: Step) -> str:
-        """
-        Summarize a step for the prompt.
 
-        Args:
-            step: The step to summarize
-
-        Returns:
-            Summary string
-        """
         return self.causal_attribution._summarize_step(step)
 
     def _parse_agreement(self, response: str) -> bool:
-        """
-        Parse whether the agent agrees with the causal claim.
 
-        Args:
-            response: The agent's response
-
-        Returns:
-            True if agrees, False otherwise
-        """
         response_upper = response.upper()
 
         if "AGREEMENT: AGREE" in response_upper or "AGREEMENT:AGREE" in response_upper:
@@ -257,15 +240,7 @@ Be thorough and critical. Challenge weak causal claims.
             return False
 
     def _parse_confidence(self, response: str) -> float:
-        """
-        Parse confidence score from response.
 
-        Args:
-            response: The agent's response
-
-        Returns:
-            Confidence score (0-1)
-        """
         import re
 
         # Look for CONFIDENCE: X.X pattern
@@ -298,9 +273,9 @@ Be thorough and critical. Challenge weak causal claims.
         """
         # Weight each agent's input
         weights = {
-            "Agent_A": 0.4,  # Proposer
-            "Agent_B": 0.3,  # First critic
-            "Agent_C": 0.3   # Second critic
+            "Agent_A": 0.33,  # Proposer
+            "Agent_B": 0.33,  # First critic
+            "Agent_C": 0.33   # Second critic
         }
 
         # Agent A's score (proposer)

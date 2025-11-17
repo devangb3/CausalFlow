@@ -1,8 +1,9 @@
 """
 CounterfactualRepair: Generates minimal edits to fix agent failures.
+Generates minimal edits to causal steps that would correct failures.
 
-This module implements the counterfactual repair component of CausalFlow
-as specified in Section 6 of the research proposal.
+Implements the minimality principle: repairs should be as small as possible
+while still correcting the failure.
 """
 
 import copy
@@ -14,8 +15,6 @@ from llm_client import LLMClient
 
 
 class Repair:
-    """Represents a proposed repair to a step."""
-
     def __init__(
         self,
         step_id: int,
@@ -24,24 +23,14 @@ class Repair:
         minimality_score: float,
         success_predicted: bool
     ):
-        """
-        Initialize a repair.
 
-        Args:
-            step_id: The step being repaired
-            original_step: The original (faulty) step
-            repaired_step: The repaired step
-            minimality_score: Score indicating how minimal the edit is (0-1)
-            success_predicted: Whether this repair is predicted to succeed
-        """
-        self.step_id = step_id
-        self.original_step = original_step
-        self.repaired_step = repaired_step
-        self.minimality_score = minimality_score
-        self.success_predicted = success_predicted
+        self.step_id = step_id #The step being repaired
+        self.original_step = original_step #The original (faulty) step
+        self.repaired_step = repaired_step #The repaired step
+        self.minimality_score = minimality_score #Score indicating how minimal the edit is (0-1)
+        self.success_predicted = success_predicted #Whether this repair is predicted to succeed
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert repair to dictionary."""
         return {
             "step_id": self.step_id,
             "original_step": self.original_step.to_dict(),
@@ -52,29 +41,15 @@ class Repair:
 
 
 class CounterfactualRepair:
-    """
-    Generates minimal edits to causal steps that would correct failures.
-
-    Implements the minimality principle: repairs should be as small as possible
-    while still correcting the failure.
-    """
-
     def __init__(
         self,
         trace: TraceLogger,
         causal_attribution: CausalAttribution,
         llm_client: LLMClient
     ):
-        """
-        Initialize counterfactual repair generator.
 
-        Args:
-            trace: The failed execution trace
-            causal_attribution: Causal attribution analysis results
-            llm_client: LLM client for generating repairs
-        """
-        self.trace = trace
-        self.causal_attribution = causal_attribution
+        self.trace = trace #The failed execution trace
+        self.causal_attribution = causal_attribution #Causal attribution analysis results
         self.llm_client = llm_client
 
         self.repairs: Dict[int, List[Repair]] = {}
@@ -112,24 +87,14 @@ class CounterfactualRepair:
         num_proposals: int,
         all_steps: List[Step]
     ) -> List[Repair]:
-        """
-        Generate multiple repair proposals for a single step.
-
-        Args:
-            step_id: The step to repair
-            num_proposals: Number of proposals to generate
-
-        Returns:
-            List of repair proposals
-        """
         original_step = self.trace.get_step(step_id)
         if not original_step:
             return []
 
         proposals = []
-
+        previous_steps = all_steps[:step_id]
         for i in range(num_proposals):
-            prompt = self._create_repair_prompt(original_step, all_steps, proposal_num=i)
+            prompt = self._create_repair_prompt(original_step, previous_steps, proposal_num=i)
 
             try:
                 repaired_content = self.llm_client.generate(
@@ -166,14 +131,14 @@ class CounterfactualRepair:
 
         return proposals
 
-    def _create_repair_prompt(self, step: Step, all_steps: List[Step], proposal_num: int = 0) -> str:
+    def _create_repair_prompt(self, step: Step, previous_steps: List[Step], proposal_num: int = 0) -> str:
 
         prompt = f"""You are debugging a failed agent execution. The agent's final answer was incorrect.
 
 Problem Statement: {self.trace.problem_statement}
 
-All steps in the trace:
-{json.dumps([step.to_dict() for step in all_steps], indent=2)}
+Previous steps in the trace:
+{json.dumps([step.to_dict() for step in previous_steps], indent=2)}
 
 Below is the step that has been identified as causally responsible for the failure.
 
@@ -212,16 +177,7 @@ Step {step.step_id} ({step.step_type.value}):
         return prompt
 
     def _apply_repair(self, original_step: Step, repaired_content: str) -> Step:
-        """
-        Apply a repair to create a modified step.
 
-        Args:
-            original_step: The original step
-            repaired_content: The repaired content from LLM
-
-        Returns:
-            Modified step
-        """
         repaired_step = copy.deepcopy(original_step)
 
         if original_step.step_type == StepType.REASONING:
@@ -312,16 +268,7 @@ Step {step.step_id} ({step.step_type.value}):
             return step.text or ""
 
     def _predict_repair_success(self, step_id: int, repaired_step: Step) -> bool:
-        """
-        Predict if a repair would lead to success.
 
-        Args:
-            step_id: The step being repaired
-            repaired_step: The proposed repair
-
-        Returns:
-            True if predicted to succeed
-        """
         # Use the same prediction method as causal attribution
         return self.causal_attribution._llm_predict_outcome(
             step_id, repaired_step, self.trace.problem_statement

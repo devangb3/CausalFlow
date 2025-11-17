@@ -137,11 +137,8 @@ def create_complex_failed_trace():
 
 
 def demo_complex_analysis():
-    print("\n" + "=" * 70)
     print("EXAMPLE: Multi-step Inventory Problem")
-    print("=" * 70)
 
-    # Check if API key is set
     load_dotenv()
     api_key = os.getenv("OPENROUTER_SECRET_KEY")
 

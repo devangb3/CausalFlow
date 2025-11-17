@@ -167,8 +167,7 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
     def _summarize_step(self, step: Step) -> str:
 
         if step.step_type == StepType.REASONING:
-            text = step.text[:1000] + "..." if len(step.text) > 1000 else step.text
-            return f"[Reasoning] {text}"
+            return f"[Reasoning] {step.text}"
         elif step.step_type == StepType.TOOL_CALL:
             return f"[Tool Call] {step.tool_name}({step.tool_args})"
         elif step.step_type == StepType.TOOL_RESPONSE:

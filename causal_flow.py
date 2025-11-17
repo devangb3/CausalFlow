@@ -46,9 +46,6 @@ class CausalFlow:
     ) -> Dict[str, Any]:
         self.trace = trace
 
-        print("CausalFlow Analysis Started")
-        print("=" * 60)
-
         print("\n[1/5] Constructing causal graph...")
         self.causal_graph = CausalGraph(trace)
         print(f"Graph constructed: {self.causal_graph}")
