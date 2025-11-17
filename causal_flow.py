@@ -43,7 +43,21 @@ class CausalFlow:
         self,
         trace: TraceLogger,
         skip_repair: bool = False,
+        metrics_output_file: Optional[str] = "causal_metrics.json",
+        ground_truth_causal_steps: Optional[List[int]] = None
     ) -> Dict[str, Any]:
+        """
+        Analyze a trace through the complete CausalFlow pipeline.
+
+        Args:
+            trace: The execution trace to analyze
+            skip_repair: Whether to skip counterfactual repair generation
+            metrics_output_file: File path for metrics JSON (None to skip export)
+            ground_truth_causal_steps: Optional ground truth for precision/recall
+
+        Returns:
+            Dictionary containing analysis results
+        """
         self.trace = trace
 
         print("\n[1/5] Constructing causal graph...")
@@ -82,7 +96,7 @@ class CausalFlow:
         critiques = self.multi_agent_critique.critique_causal_attributions()
         consensus_steps = self.multi_agent_critique.get_consensus_causal_steps()
         print(f"Critique complete: {len(consensus_steps)} steps confirmed by consensus")
-        
+
 
         print("\n[5/5] Compiling results...")
         results = self._compile_results(
@@ -92,6 +106,13 @@ class CausalFlow:
             critiques,
             consensus_steps
         )
+
+        # Generate and export metrics JSON
+        if metrics_output_file:
+            print(f"\n[6/6] Generating metrics JSON...")
+            self.export_metrics(metrics_output_file, ground_truth_causal_steps)
+            print(f"Metrics saved to: {metrics_output_file}")
+
         print("Analysis complete!")
         return results
 
@@ -205,6 +226,200 @@ class CausalFlow:
 
         return "\n".join(lines)
 
+    def generate_metrics_json(
+        self,
+        ground_truth_causal_steps: Optional[List[int]] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate comprehensive metrics JSON with:
+        - Causal attribution precision/recall
+        - Repair success rate
+        - Minimality scores
+        - Multi-agent agreement details
+
+        Args:
+            ground_truth_causal_steps: Optional list of ground truth causal step IDs
+                                      for computing precision/recall
+
+        Returns:
+            Dictionary containing all metrics
+        """
+        if not self.causal_attribution:
+            raise ValueError("No analysis has been performed yet. Call analyze_trace() first.")
+
+        metrics = {}
+
+        # 1. Causal Attribution Metrics
+        identified_steps = self.causal_attribution.get_causal_steps()
+
+        causal_metrics = {
+            "num_identified_causal_steps": len(identified_steps),
+            "identified_steps": identified_steps,
+        }
+
+        if ground_truth_causal_steps is not None:
+            gt_set = set(ground_truth_causal_steps)
+            id_set = set(identified_steps)
+
+            true_positives = len(gt_set & id_set)
+            false_positives = len(id_set - gt_set)
+            false_negatives = len(gt_set - id_set)
+
+            precision = true_positives / len(id_set) if len(id_set) > 0 else 0.0
+            recall = true_positives / len(gt_set) if len(gt_set) > 0 else 0.0
+            f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+
+            causal_metrics.update({
+                "precision": round(precision, 4),
+                "recall": round(recall, 4),
+                "f1_score": round(f1_score, 4),
+                "num_ground_truth_causal_steps": len(ground_truth_causal_steps),
+                "ground_truth_steps": ground_truth_causal_steps,
+                "true_positives": true_positives,
+                "false_positives": false_positives,
+                "false_negatives": false_negatives
+            })
+        else:
+            causal_metrics.update({
+                "precision": None,
+                "recall": None,
+                "f1_score": None,
+                "num_ground_truth_causal_steps": None,
+                "ground_truth_steps": None,
+                "true_positives": None,
+                "false_positives": None,
+                "false_negatives": None,
+                "note": "Ground truth not provided - precision/recall unavailable"
+            })
+
+        metrics["causal_attribution_metrics"] = causal_metrics
+
+        # 2. Repair Metrics
+        repair_metrics = {
+            "total_repairs_attempted": 0,
+            "successful_repairs": 0,
+            "failed_repairs": 0,
+            "success_rate": 0.0,
+            "repairs_by_step": {}
+        }
+
+        if self.counterfactual_repair:
+            best_repairs = self.counterfactual_repair.get_all_best_repairs()
+            all_repairs = self.counterfactual_repair.repairs
+
+            total = sum(len(repair_list) for repair_list in all_repairs.values())
+            successful = sum(
+                1 for repair_list in all_repairs.values()
+                for repair in repair_list
+                if repair.success_predicted
+            )
+
+            repair_metrics.update({
+                "total_repairs_attempted": total,
+                "successful_repairs": successful,
+                "failed_repairs": total - successful,
+                "success_rate": round(successful / total, 4) if total > 0 else 0.0,
+                "repairs_by_step": {
+                    step_id: {
+                        "success": repair.success_predicted,
+                        "minimality_score": round(repair.minimality_score, 4)
+                    }
+                    for step_id, repair in best_repairs.items()
+                }
+            })
+
+        metrics["repair_metrics"] = repair_metrics
+
+        # 3. Minimality Metrics
+        minimality_metrics = {
+            "average_minimality": None,
+            "min_minimality": None,
+            "max_minimality": None,
+            "minimality_by_step": {}
+        }
+
+        if self.counterfactual_repair:
+            best_repairs = self.counterfactual_repair.get_all_best_repairs()
+            if best_repairs:
+                minimality_scores = [r.minimality_score for r in best_repairs.values()]
+                minimality_metrics.update({
+                    "average_minimality": round(sum(minimality_scores) / len(minimality_scores), 4),
+                    "min_minimality": round(min(minimality_scores), 4),
+                    "max_minimality": round(max(minimality_scores), 4),
+                    "minimality_by_step": {
+                        step_id: round(repair.minimality_score, 4)
+                        for step_id, repair in best_repairs.items()
+                    }
+                })
+
+        metrics["minimality_metrics"] = minimality_metrics
+
+        # 4. Multi-Agent Agreement
+        agreement_data = {
+            "average_consensus_score": None,
+            "num_steps_critiqued": 0,
+            "steps_with_agreement": []
+        }
+
+        if self.multi_agent_critique:
+            critique_results = self.multi_agent_critique.critique_results
+
+            if critique_results:
+                consensus_scores = [r.consensus_score for r in critique_results.values()]
+                agreement_data["average_consensus_score"] = round(
+                    sum(consensus_scores) / len(consensus_scores), 4
+                )
+                agreement_data["num_steps_critiqued"] = len(critique_results)
+
+                for step_id, result in critique_results.items():
+                    step_data = {
+                        "step_id": step_id,
+                        "consensus_score": round(result.consensus_score, 4),
+                        "final_verdict": "CAUSAL" if result.final_verdict else "NOT CAUSAL",
+                        "agent_a_score": self.causal_attribution.crs_scores.get(step_id, 0.0)
+                    }
+
+                    # Extract Agent B details
+                    agent_b_critique = next(
+                        (c for c in result.critiques if c["agent"] == "Agent_B"),
+                        None
+                    )
+                    if agent_b_critique:
+                        step_data["agent_b_agrees"] = agent_b_critique["agrees"]
+                        step_data["agent_b_confidence"] = round(agent_b_critique["confidence"], 4)
+                        step_data["agent_b_reasoning"] = self._extract_reasoning(
+                            agent_b_critique["response"]
+                        )
+
+                    # Extract Agent C (final critic) details
+                    agent_c_critique = next(
+                        (c for c in result.critiques if c["agent"] == "Agent_C"),
+                        None
+                    )
+                    if agent_c_critique:
+                        step_data["agent_c_agrees"] = agent_c_critique["agrees"]
+                        step_data["agent_c_confidence"] = round(agent_c_critique["confidence"], 4)
+                        step_data["agent_c_reasoning"] = self._extract_reasoning(
+                            agent_c_critique["response"]
+                        )
+                        step_data["final_critic_summary"] = self._extract_reasoning(
+                            agent_c_critique["response"]
+                        )
+
+                    agreement_data["steps_with_agreement"].append(step_data)
+
+        metrics["multi_agent_agreement"] = agreement_data
+
+        return metrics
+
+    def _extract_reasoning(self, response: str) -> str:
+        """Extract the REASONING section from a critique response."""
+        if "REASONING:" in response:
+            reasoning = response.split("REASONING:")[-1].strip()
+            # Limit to first 500 characters for readability
+            return reasoning[:500] + "..." if len(reasoning) > 500 else reasoning
+        return response[:500] + "..." if len(response) > 500 else response
+
     def export_results(self, filepath: str):
 
         if not self.causal_attribution:
@@ -222,3 +437,22 @@ class CausalFlow:
             json.dump(results, f, indent=2)
 
         print(f"Results exported to: {filepath}")
+
+    def export_metrics(
+        self,
+        filepath: str,
+        ground_truth_causal_steps: Optional[List[int]] = None
+    ):
+        """
+        Export comprehensive metrics to JSON file.
+
+        Args:
+            filepath: Path to save the metrics JSON
+            ground_truth_causal_steps: Optional list of ground truth causal step IDs
+        """
+        metrics = self.generate_metrics_json(ground_truth_causal_steps)
+
+        with open(filepath, 'w') as f:
+            json.dump(metrics, f, indent=2)
+
+        print(f"Metrics exported to: {filepath}")
