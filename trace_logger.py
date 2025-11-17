@@ -67,12 +67,6 @@ class TraceLogger:
     """
 
     def __init__(self, problem_statement: Optional[str] = None):
-        """Initialize an empty trace logger.
-
-        Args:
-            problem_statement: The original task or question the agent is trying to solve.
-                             This provides essential context for causal analysis.
-        """
         self.steps: List[Step] = []
         self.current_step_id: int = 0
         self.success: Optional[bool] = None

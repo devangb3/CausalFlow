@@ -23,7 +23,7 @@ class CausalFlow:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "openai/gpt-5.1",
+        model: str = "google/gemini-2.5-flash-lite",
         num_critique_agents: int = 3 #Number of agents for multi-agent critique
     ):
 
@@ -96,14 +96,6 @@ class CausalFlow:
             consensus_steps
         )
         print("Analysis complete!")
-
-        print("\n" + "=" * 60)
-        print("Analysis Summary:")
-        print(f"  - Causal steps: {len(causal_steps)}")
-        print(f"  - Consensus steps: {len(consensus_steps)}")
-        print(f"  - Repair proposals: {sum(len(r) for r in repairs.values())}")
-        print("=" * 60)
-
         return results
 
     def _compile_results(

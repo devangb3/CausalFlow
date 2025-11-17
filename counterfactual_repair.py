@@ -370,12 +370,12 @@ Step {step.step_id} ({step.step_type.value}):
             lines.append("-" * 60)
 
             original_text = self._extract_step_text(step)
-            lines.append(f"Original: {original_text[:100]}...")
+            lines.append(f"Original: {original_text}")
 
             best = self.get_best_repair(step_id)
             if best:
                 repaired_text = self._extract_step_text(best.repaired_step)
-                lines.append(f"Best Repair: {repaired_text[:100]}...")
+                lines.append(f"Best Repair: {repaired_text}")
                 lines.append(f"Minimality: {best.minimality_score:.2f}")
                 lines.append(f"Success Predicted: {best.success_predicted}")
 

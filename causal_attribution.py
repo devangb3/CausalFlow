@@ -1,5 +1,9 @@
 """
 CausalAttribution: Identifies which steps caused agent failures through interventions.
+Performs causal attribution by intervening on steps and observing outcome changes.
+
+    Uses the do-operator framework: for each step i, we ask "Did modifying step i
+    change the final outcome from failure to success?"
 """
 
 import copy
@@ -10,12 +14,6 @@ from llm_client import LLMClient
 
 
 class CausalAttribution:
-    """
-    Performs causal attribution by intervening on steps and observing outcome changes.
-
-    Uses the do-operator framework: for each step i, we ask "Did modifying step i
-    change the final outcome from failure to success?"
-    """
 
     def __init__(
         self,
@@ -122,7 +120,7 @@ class CausalAttribution:
         context = self._get_step_context(step)
 
         prompt = f"""You are analyzing a failed agent execution. The agent produced an incorrect final answer.
-
+Problem Statement: {self.trace.problem_statement}
 Context from previous steps:
 {context}
 
@@ -282,16 +280,7 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
         return self._llm_predict_outcome(step_id, intervened_step, self.trace.problem_statement)
 
     def _llm_predict_outcome(self, step_id: int, intervened_step: Step, problem_statement: str) -> bool:
-        """
-        Use LLM to predict if the intervention would lead to success.
 
-        Args:
-            step_id: The step that was intervened on
-            intervened_step: The modified step
-
-        Returns:
-            True if predicted to succeed, False otherwise
-        """
         prompt = f"""You are analyzing an agent execution trace.
 
 Problem Statement: {problem_statement}

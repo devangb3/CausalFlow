@@ -240,15 +240,7 @@ class CausalGraph:
         return []
 
     def visualize_graph(self, filename: str = None) -> str:
-        """
-        Generate a text-based visualization of the graph.
 
-        Args:
-            filename: Optional filename to save visualization
-
-        Returns:
-            String representation of the graph
-        """
         lines = ["Causal Graph Structure:"]
         lines.append("=" * 50)
 

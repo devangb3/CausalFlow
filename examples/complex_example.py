@@ -28,9 +28,9 @@ def create_complex_failed_trace():
     answer of 95 instead of 93.
     """
     problem_statement = (
-        "A store has 120 items in stock. During a sale, they sell 35% of their "
-        "inventory in the morning. In the afternoon, they receive a shipment of 40 new items. "
-        "Then they sell 25 more items. How many items does the store have at the end of the day?"
+        """A store has 120 items in stock. During a sale, they sell 35% of their 
+        inventory in the morning. In the afternoon, they receive a shipment of 40 new items. 
+        Then they sell 25 more items. How many items does the store have at the end of the day? """
     )
     trace = TraceLogger(problem_statement=problem_statement)
 
@@ -63,8 +63,7 @@ def create_complex_failed_trace():
     # Step 4: Calculate remaining after morning (ERROR: agent uses wrong value)
     # This is the critical failure point - agent rounds unnecessarily
     step_4 = trace.log_reasoning(
-        "Morning sales were 42 items. However, I'll round this to 40 for simplicity.\n"
-        "Remaining inventory: 120 - 40 = 80",
+        "Morning sales were 42 items. However, I'll round this to 40 for simplicity.\n",
         dependencies=[step_3]
     )
 
@@ -173,14 +172,8 @@ def demo_complex_analysis():
         flow.export_results(results_path)
         print(f"  Results saved to: {results_path}")
 
-        print("\n" + "=" * 70)
         print("ANALYSIS COMPLETE")
-        print("=" * 70)
-
-        print("\n" + "-" * 70)
-        print("KEY FINDINGS")
-        print("-" * 70)
-
+       
         if 'attribution' in results and results['attribution']:
             print("\nMost Causally Responsible Steps:")
             for step_id, score in sorted(results['attribution'].items(),
