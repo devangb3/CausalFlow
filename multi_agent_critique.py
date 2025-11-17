@@ -294,19 +294,11 @@ Be thorough and critical. Challenge weak causal claims.
 
         return max(0.0, min(1.0, total_score))
 
-    def get_consensus_causal_steps(self, threshold: float = 0.5) -> List[int]:
-        """
-        Get steps confirmed as causal by consensus.
+    def get_consensus_causal_steps(self, threshold: float = 0.5) -> List[Step]:
 
-        Args:
-            threshold: Minimum consensus score
-
-        Returns:
-            List of step IDs with consensus >= threshold
-        """
         return [
-            step_id for step_id, result in self.critique_results.items()
-            if result.consensus_score >= threshold
+            self.trace.get_step(step_id) for step_id in self.critique_results.keys()
+            if self.critique_results[step_id].consensus_score >= threshold
         ]
 
     def generate_report(self) -> str:

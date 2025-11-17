@@ -314,14 +314,12 @@ Descendants of this step (affected by the intervention):
             if score >= 0.5
         ]
 
-    def get_top_causal_steps(self, n: int = 3) -> List[tuple]:
+    def get_top_causal_steps(self) -> List[tuple]:
 
-        sorted_steps = sorted(
-            self.crs_scores.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
-        return sorted_steps[:n]
+        return [
+            (step_id, score) for step_id, score in self.crs_scores.items()
+            if score >= 0.5
+        ]
 
     def generate_report(self) -> str:
 
@@ -338,7 +336,7 @@ Descendants of this step (affected by the intervention):
         lines.append(f"Causally Responsible Steps: {len(causal_steps)}")
         lines.append("")
 
-        top_steps = self.get_top_causal_steps(5)
+        top_steps = self.get_top_causal_steps()
         lines.append("Top Causal Steps (by CRS):")
         lines.append("-" * 60)
 

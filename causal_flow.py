@@ -10,7 +10,7 @@ This module integrates all components of the CausalFlow framework:
 """
 
 from typing import Dict, Any, Optional, List
-from trace_logger import TraceLogger
+from trace_logger import TraceLogger, Step
 from causal_graph import CausalGraph
 from causal_attribution import CausalAttribution
 from counterfactual_repair import CounterfactualRepair
@@ -43,21 +43,9 @@ class CausalFlow:
         self,
         trace: TraceLogger,
         skip_repair: bool = False,
-        metrics_output_file: Optional[str] = "causal_metrics.json",
-        ground_truth_causal_steps: Optional[List[int]] = None
+        metrics_output_file: str = "examples/causal_metrics_results.json"
     ) -> Dict[str, Any]:
-        """
-        Analyze a trace through the complete CausalFlow pipeline.
 
-        Args:
-            trace: The execution trace to analyze
-            skip_repair: Whether to skip counterfactual repair generation
-            metrics_output_file: File path for metrics JSON (None to skip export)
-            ground_truth_causal_steps: Optional ground truth for precision/recall
-
-        Returns:
-            Dictionary containing analysis results
-        """
         self.trace = trace
 
         print("\n[1/5] Constructing causal graph...")
@@ -107,11 +95,9 @@ class CausalFlow:
             consensus_steps
         )
 
-        # Generate and export metrics JSON
-        if metrics_output_file:
-            print(f"\n[6/6] Generating metrics JSON...")
-            self.export_metrics(metrics_output_file, ground_truth_causal_steps)
-            print(f"Metrics saved to: {metrics_output_file}")
+        print(f"\n[6/6] Generating metrics JSON...")
+        self.export_metrics(metrics_output_file, consensus_steps)
+        print(f"Metrics saved to: {metrics_output_file}")
 
         print("Analysis complete!")
         return results
@@ -122,7 +108,7 @@ class CausalFlow:
         causal_steps: List[int],
         repairs: Dict[int, List],
         critiques: Dict[int, Any],
-        consensus_steps: List[int]
+        consensus_steps: List[Step]
     ) -> Dict[str, Any]:
 
         results = {
@@ -138,7 +124,7 @@ class CausalFlow:
             "causal_attribution": {
                 "crs_scores": crs_scores,
                 "causal_steps": causal_steps,
-                "top_causal_steps": self.causal_attribution.get_top_causal_steps(5)
+                "top_causal_steps": self.causal_attribution.get_top_causal_steps()
             },
             "counterfactual_repair": {},
             "multi_agent_critique": {}
@@ -163,7 +149,7 @@ class CausalFlow:
         if self.multi_agent_critique:
             results["multi_agent_critique"] = {
                 "num_steps_critiqued": len(critiques),
-                "consensus_steps": consensus_steps,
+                "consensus_steps": [step.to_dict() for step in consensus_steps],
                 "critique_details": {
                     step_id: {
                         "consensus_score": critique.consensus_score,
@@ -179,19 +165,14 @@ class CausalFlow:
     def generate_full_report(self, output_file: Optional[str] = None) -> str:
         sections = []
 
-        sections.append("=" * 70)
         sections.append("CAUSALFLOW COMPREHENSIVE ANALYSIS REPORT")
-        sections.append("=" * 70)
-        sections.append("")
 
         # Trace Summary
         sections.append(self._generate_trace_summary())
 
         # Causal Graph
         if self.causal_graph:
-            sections.append("\n" + "=" * 70)
             sections.append("CAUSAL GRAPH")
-            sections.append("=" * 70)
             sections.append(str(self.causal_graph.get_statistics()))
 
         # Causal Attribution
@@ -228,69 +209,44 @@ class CausalFlow:
 
     def generate_metrics_json(
         self,
-        ground_truth_causal_steps: Optional[List[int]] = None
+        consensus_steps: List[Step]
     ) -> Dict[str, Any]:
-        """
-        Generate comprehensive metrics JSON with:
-        - Causal attribution precision/recall
-        - Repair success rate
-        - Minimality scores
-        - Multi-agent agreement details
 
-        Args:
-            ground_truth_causal_steps: Optional list of ground truth causal step IDs
-                                      for computing precision/recall
-
-        Returns:
-            Dictionary containing all metrics
-        """
         if not self.causal_attribution:
             raise ValueError("No analysis has been performed yet. Call analyze_trace() first.")
 
         metrics = {}
 
         # 1. Causal Attribution Metrics
-        identified_steps = self.causal_attribution.get_causal_steps()
-
+        initial_identified_step_ids = self.causal_attribution.get_causal_steps()
+        initial_identified_steps = [self.trace.get_step(step_id) for step_id in initial_identified_step_ids]
         causal_metrics = {
-            "num_identified_causal_steps": len(identified_steps),
-            "identified_steps": identified_steps,
+            "num_identified_causal_steps": len(initial_identified_steps),
+            "identified_steps": [step.to_dict() for step in initial_identified_steps if step],
         }
 
-        if ground_truth_causal_steps is not None:
-            gt_set = set(ground_truth_causal_steps)
-            id_set = set(identified_steps)
+        
+        gt_set = set[int]([step.step_id for step in consensus_steps])
+        id_set = set[int](initial_identified_step_ids)
 
-            true_positives = len(gt_set & id_set)
-            false_positives = len(id_set - gt_set)
-            false_negatives = len(gt_set - id_set)
+        true_positives = len(gt_set & id_set)
+        false_positives = len(id_set - gt_set)
+        false_negatives = len(gt_set - id_set)
 
-            precision = true_positives / len(id_set) if len(id_set) > 0 else 0.0
-            recall = true_positives / len(gt_set) if len(gt_set) > 0 else 0.0
-            f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+        precision = true_positives / len(id_set) if len(id_set) > 0 else 0.0
+        recall = true_positives / len(gt_set) if len(gt_set) > 0 else 0.0
+        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
 
-            causal_metrics.update({
-                "precision": round(precision, 4),
-                "recall": round(recall, 4),
-                "f1_score": round(f1_score, 4),
-                "num_ground_truth_causal_steps": len(ground_truth_causal_steps),
-                "ground_truth_steps": ground_truth_causal_steps,
-                "true_positives": true_positives,
-                "false_positives": false_positives,
-                "false_negatives": false_negatives
-            })
-        else:
-            causal_metrics.update({
-                "precision": None,
-                "recall": None,
-                "f1_score": None,
-                "num_ground_truth_causal_steps": None,
-                "ground_truth_steps": None,
-                "true_positives": None,
-                "false_positives": None,
-                "false_negatives": None,
-                "note": "Ground truth not provided - precision/recall unavailable"
-            })
+        causal_metrics.update({
+            "precision": round(precision, 4),
+            "recall": round(recall, 4),
+            "f1_score": round(f1_score, 4),
+            "num_ground_truth_causal_steps": len(consensus_steps),
+            "ground_truth_steps": [step.to_dict() for step in consensus_steps],
+            "true_positives": true_positives,
+            "false_positives": false_positives,
+            "false_negatives": false_negatives
+        })
 
         metrics["causal_attribution_metrics"] = causal_metrics
 
@@ -413,12 +369,10 @@ class CausalFlow:
         return metrics
 
     def _extract_reasoning(self, response: str) -> str:
-        """Extract the REASONING section from a critique response."""
         if "REASONING:" in response:
             reasoning = response.split("REASONING:")[-1].strip()
-            # Limit to first 500 characters for readability
-            return reasoning[:500] + "..." if len(reasoning) > 500 else reasoning
-        return response[:500] + "..." if len(response) > 500 else response
+            return reasoning
+        return response
 
     def export_results(self, filepath: str):
 
@@ -441,16 +395,9 @@ class CausalFlow:
     def export_metrics(
         self,
         filepath: str,
-        ground_truth_causal_steps: Optional[List[int]] = None
+        consensus_steps: List[Step]
     ):
-        """
-        Export comprehensive metrics to JSON file.
-
-        Args:
-            filepath: Path to save the metrics JSON
-            ground_truth_causal_steps: Optional list of ground truth causal step IDs
-        """
-        metrics = self.generate_metrics_json(ground_truth_causal_steps)
+        metrics = self.generate_metrics_json(consensus_steps)
 
         with open(filepath, 'w') as f:
             json.dump(metrics, f, indent=2)
