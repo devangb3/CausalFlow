@@ -58,21 +58,9 @@ class CounterfactualRepair:
 
     def generate_repairs(
         self,
-        step_ids: Optional[List[int]] = None,
+        step_ids: List[int],
         num_proposals: int = 3
     ) -> Dict[int, List[Repair]]:
-        """
-        Generate repairs for causally responsible steps.
-
-        Args:
-            step_ids: Optional list of step IDs to repair (if None, uses causal steps)
-            num_proposals: Number of repair proposals to generate per step
-
-        Returns:
-            Dictionary mapping step_id to list of repair proposals
-        """
-        if step_ids is None:
-            step_ids = self.causal_attribution.get_causal_steps()
 
         for step_id in step_ids:
             self.repairs[step_id] = self._generate_repairs_for_step(
@@ -96,21 +84,19 @@ class CounterfactualRepair:
         proposals = []
         previous_steps = all_steps[:step_id]
         for i in range(num_proposals):
-            prompt = self._create_repair_prompt(original_step, previous_steps, proposal_num=i)
+            prompt = self._create_repair_prompt(original_step, previous_steps)
 
             try:
-                # Use structured output for repair
                 result = self.llm_client.generate_structured(
                     prompt,
                     schema_name="repair",
                     system_message="You are an expert at debugging and fixing agent reasoning. Generate minimal, targeted edits.",
-                    temperature=0.7  # Some variety in proposals
+                    temperature=0.7
                 )
 
                 # Create repaired step
                 repaired_step = self._apply_repair(original_step, result)
 
-                # Calculate minimality score
                 minimality = calculate_minimality_score(
                     extract_step_text(original_step),
                     extract_step_text(repaired_step)
@@ -138,10 +124,8 @@ class CounterfactualRepair:
 
         return proposals
 
-    def _create_repair_prompt(self, step: Step, previous_steps: List[Step], proposal_num: int = 0) -> str:
-        # Limit previous steps to avoid overly long prompts
-        recent_steps = previous_steps[-5:] if len(previous_steps) > 5 else previous_steps
-
+    def _create_repair_prompt(self, step: Step, previous_steps: List[Step]) -> str:
+        
         prompt = f"""You are debugging a failed agent execution. The agent's final answer was incorrect.
 
 Problem Statement: {self.trace.problem_statement}
@@ -149,7 +133,7 @@ Correct Answer: {self.trace.gold_answer}
 Agent's Incorrect Answer: {self.trace.final_answer}
 
 Recent previous steps:
-{json.dumps([step.to_dict() for step in recent_steps], indent=2)}
+{json.dumps([step.to_dict() for step in previous_steps], indent=2)}
 
 Below is the step that has been identified as causally responsible for the failure.
 
@@ -185,24 +169,11 @@ Step {step.step_id} ({step.step_type.value}):
             prompt += "List changes in 'changes_made'.\n"
             prompt += "Explain minimality in 'minimality_justification'."
 
-        if proposal_num > 0:
-            prompt += f"\n\nThis is proposal #{proposal_num + 1}. Consider alternative minimal fixes."
-
         prompt += "\n\nRemember: Change ONLY what is absolutely necessary to fix the error."
 
         return prompt
 
     def _apply_repair(self, original_step: Step, repair_result: BaseModel) -> Step:
-        """
-        Apply a repair result (Pydantic model) to create a repaired step.
-
-        Args:
-            original_step: The original step
-            repair_result: Pydantic RepairOutput model from LLM
-
-        Returns:
-            Repaired step
-        """
         repaired_step = copy.deepcopy(original_step)
 
         if original_step.step_type == StepType.REASONING:
@@ -228,7 +199,6 @@ Step {step.step_id} ({step.step_type.value}):
 
     def _predict_repair_success(self, step_id: int, repaired_step: Step) -> bool:
 
-        # Use the same prediction method as causal attribution
         return self.causal_attribution._llm_predict_outcome(
             step_id, repaired_step, self.trace.problem_statement
         )
@@ -241,10 +211,8 @@ Step {step.step_id} ({step.step_type.value}):
         successful = [r for r in self.repairs[step_id] if r.success_predicted]
 
         if not successful:
-            # If no successful repairs, return most minimal one
             return None
 
-        # Return most minimal successful repair
         return max(successful, key=lambda r: r.minimality_score)
 
     def get_all_best_repairs(self) -> Dict[int, Repair]:

@@ -77,14 +77,14 @@ Content: {step_summary}"""
 def calculate_text_similarity(text1: str, text2: str) -> float:
 
     # Simple word-based tokenization
-    tokens1 = set(text1.lower().split())
-    tokens2 = set(text2.lower().split())
+    tokens1 = set[str](text1.lower().split())
+    tokens2 = set[str](text2.lower().split())
 
     if not tokens1 and not tokens2:
-        return 1.0  # Both empty = identical
+        return 1.0
 
     if not tokens1 or not tokens2:
-        return 0.0  # One empty, one not = completely different
+        return 0.0
 
     # Jaccard similarity
     intersection = len(tokens1 & tokens2)
@@ -98,9 +98,8 @@ def calculate_minimality_score(original: str, modified: str) -> float:
     if original == modified:
         return 1.0
 
-    # Simple token-based approach
-    original_tokens = original.split()
-    modified_tokens = modified.split()
+    original_tokens = set[str](original.lower().split())
+    modified_tokens = set[str](modified.lower().split())
 
     if not original_tokens:
         return 0.0 if modified_tokens else 1.0
@@ -118,13 +117,3 @@ def calculate_minimality_score(original: str, modified: str) -> float:
     minimality = (matches / max_len) * (1 - len_diff_penalty * 0.5)
 
     return max(0.0, min(1.0, minimality))
-
-
-def parse_agreement(text: str) -> bool:
-
-    text_upper = text.upper()
-
-    if "AGREE" in text_upper and "DISAGREE" not in text_upper:
-        return True
-
-    return False

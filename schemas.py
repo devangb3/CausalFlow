@@ -168,14 +168,7 @@ class LLMSchemas:
 
     @staticmethod
     def _simplify_schema(schema: Dict[str, Any]) -> None:
-        """
-        Simplify schema for Google Gemini compatibility.
-        Removes anyOf, oneOf, allOf, and simplifies optional fields.
-        Modifies schema in-place.
 
-        Args:
-            schema: The schema object to simplify
-        """
         if isinstance(schema, dict):
             # Remove title from all properties
             schema.pop("title", None)
@@ -201,7 +194,7 @@ class LLMSchemas:
                         break
 
             # Recursively process nested objects
-            for key, value in list(schema.items()):
+            for _, value in list(schema.items()):
                 if isinstance(value, dict):
                     LLMSchemas._simplify_schema(value)
                 elif isinstance(value, list):
@@ -244,18 +237,5 @@ class LLMSchemas:
 
     @staticmethod
     def parse_response(schema_name: str, response_data: Dict[str, Any]) -> BaseModel:
-        """
-        Parse and validate a response using the appropriate Pydantic model.
-
-        Args:
-            schema_name: Name of the schema
-            response_data: Raw JSON response data
-
-        Returns:
-            Validated Pydantic model instance
-
-        Raises:
-            ValueError: If schema_name is unknown or validation fails
-        """
         model = LLMSchemas.get_model(schema_name)
         return model(**response_data)
