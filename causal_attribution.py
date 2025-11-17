@@ -11,6 +11,7 @@ from typing import Dict, List, Any, Callable, Optional
 from trace_logger import TraceLogger, Step, StepType
 from causal_graph import CausalGraph
 from llm_client import LLMClient
+from utils import summarize_step, format_step_context
 
 
 class CausalAttribution:
@@ -89,9 +90,10 @@ class CausalAttribution:
         intervention_prompt = self._create_intervention_prompt(step)
 
         try:
-            # Use LLM to generate corrected version
-            corrected_content = self.llm_client.generate(
+            # Use structured output to generate corrected version
+            result = self.llm_client.generate_structured(
                 intervention_prompt,
+                schema_name="intervention",
                 system_message="You are an expert at debugging and correcting agent reasoning steps."
             )
 
@@ -99,15 +101,18 @@ class CausalAttribution:
             intervened_step = copy.deepcopy(step)
 
             if step.step_type == StepType.REASONING:
-                intervened_step.text = corrected_content
+                intervened_step.text = result.get("corrected_reasoning", step.text)
             elif step.step_type == StepType.TOOL_CALL:
-                # Parse corrected tool arguments
-                intervened_step.tool_args = self._parse_tool_args(corrected_content)
+                # Use structured tool args directly
+                if "corrected_tool_args" in result:
+                    intervened_step.tool_args = result["corrected_tool_args"]
+                if "corrected_tool_name" in result:
+                    intervened_step.tool_name = result["corrected_tool_name"]
             elif step.step_type == StepType.MEMORY_ACCESS:
-                intervened_step.memory_value = corrected_content
+                intervened_step.memory_value = result.get("corrected_reasoning", step.memory_value)
             else:
                 # For other types, update the text field
-                intervened_step.text = corrected_content
+                intervened_step.text = result.get("corrected_reasoning", step.text)
 
             return intervened_step
 
@@ -116,11 +121,13 @@ class CausalAttribution:
             return None
 
     def _create_intervention_prompt(self, step: Step) -> str:
-
         context = self._get_step_context(step)
 
         prompt = f"""You are analyzing a failed agent execution. The agent produced an incorrect final answer.
+
 Problem Statement: {self.trace.problem_statement}
+Gold Answer (correct answer): {self.trace.gold_answer}
+
 Context from previous steps:
 {context}
 
@@ -128,25 +135,24 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
 """
 
         if step.step_type == StepType.REASONING:
-            prompt += f"Reasoning: {step.text}\n\n"
-            prompt += "Provide a corrected version of this reasoning step that would lead to the correct answer."
+            prompt += f"Original Reasoning: {step.text}\n\n"
+            prompt += "Provide a corrected version of this reasoning step that would lead to the correct answer. Fill in the 'corrected_reasoning' field."
 
         elif step.step_type == StepType.TOOL_CALL:
             prompt += f"Tool: {step.tool_name}\n"
             prompt += f"Arguments: {step.tool_args}\n\n"
-            prompt += "Provide corrected tool arguments in JSON format."
+            prompt += "Provide corrected tool name and arguments. Fill in 'corrected_tool_name' and 'corrected_tool_args' fields."
 
         elif step.step_type == StepType.MEMORY_ACCESS:
             prompt += f"Memory Key: {step.memory_key}\n"
             prompt += f"Memory Value: {step.memory_value}\n\n"
-            prompt += "Provide the correct memory value."
+            prompt += "Provide the correct memory value in the 'corrected_reasoning' field."
 
         else:
             prompt += f"Content: {step.text or step.action or step.observation}\n\n"
-            prompt += "Provide a corrected version of this step."
+            prompt += "Provide a corrected version of this step in the 'corrected_reasoning' field."
 
-        prompt += f"\n\nGold Answer (correct answer): {self.trace.gold_answer}"
-        prompt += "\n\nProvide ONLY the corrected content without explanation."
+        prompt += "\n\nAlso provide a brief explanation of what was corrected and why in the 'explanation' field."
 
         return prompt
 
@@ -159,99 +165,10 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
         for dep_id in dependencies[-max_context_steps:]:
             dep_step = self.trace.get_step(dep_id)
             if dep_step:
-                summary = self._summarize_step(dep_step)
+                summary = summarize_step(dep_step)
                 context_lines.append(f"Step {dep_id}: {summary}")
 
         return "\n".join(context_lines)
-
-    def _summarize_step(self, step: Step) -> str:
-
-        if step.step_type == StepType.REASONING:
-            return f"[Reasoning] {step.text}"
-        elif step.step_type == StepType.TOOL_CALL:
-            return f"[Tool Call] {step.tool_name}({step.tool_args})"
-        elif step.step_type == StepType.TOOL_RESPONSE:
-            output = str(step.tool_output)
-            return f"[Tool Response] {output}"
-        elif step.step_type == StepType.MEMORY_ACCESS:
-            return f"[Memory] {step.memory_key} = {step.memory_value}"
-        elif step.step_type == StepType.ENVIRONMENT_ACTION:
-            return f"[Action] {step.action}"
-        elif step.step_type == StepType.ENVIRONMENT_OBSERVATION:
-            return f"[Observation] {step.observation}"
-        elif step.step_type == StepType.FINAL_ANSWER:
-            return f"[Final Answer] {step.text}"
-        else:
-            return f"[{step.step_type.value}]"
-
-    def _parse_tool_args(self, text: str) -> Dict[str, Any]:
-        import json
-        import re
-
-        # Helper: try parsing a candidate string as JSON (object)
-        def try_parse_json_object(candidate: str):
-            try:
-                parsed = json.loads(candidate)
-                if isinstance(parsed, dict):
-                    return parsed
-            except Exception:
-                pass
-            return None
-
-        # 1. Try directly parsing the entire text as JSON
-        direct = try_parse_json_object(text.strip())
-        if direct is not None:
-            return direct
-
-        # 2. Try to find largest JSON object substring by bracket matching
-        brackets = []
-        for i, c in enumerate(text):
-            if c == '{':
-                brackets.append(i)
-            elif c == '}':
-                if brackets:
-                    start = brackets.pop(0)
-                    end = i + 1
-                    candidate = text[start:end]
-                    parsed = try_parse_json_object(candidate)
-                    if parsed is not None:
-                        return parsed
-
-        # 3. Try all JSON blocks found via regex
-        json_objects = re.findall(r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}', text, re.DOTALL)
-        for candidate in json_objects:
-            parsed = try_parse_json_object(candidate)
-            if parsed is not None:
-                return parsed
-
-        # 4. Try to find KEY: VALUE pairs and build a dict
-        # Looks for lines like: key: value, key = value, "key": value, etc.
-        arg_dict = {}
-        key_value_pattern = re.compile(
-            r'["\']?([a-zA-Z0-9_\-]+)["\']?\s*[:=]\s*([^\n,]+)'
-        )
-        matches = key_value_pattern.findall(text)
-        for k, v in matches:
-            v = v.strip().strip('",\'')
-            # Attempt to interpret as number or bool
-            if v.lower() == 'true':
-                v = True
-            elif v.lower() == 'false':
-                v = False
-            elif v.isdigit():
-                v = int(v)
-            else:
-                try:
-                    v_float = float(v)
-                    v = v_float
-                except Exception:
-                    pass
-            arg_dict[k.strip()] = v
-        if arg_dict:
-            return arg_dict
-
-        # 5. Fallback: return as single value argument
-        return {"value": text.strip()}
 
     def _simulate_reexecution(self, step_id: int, intervened_step: Step) -> bool:
         """
@@ -279,7 +196,6 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
         return self._llm_predict_outcome(step_id, intervened_step, self.trace.problem_statement)
 
     def _llm_predict_outcome(self, step_id: int, intervened_step: Step, problem_statement: str) -> bool:
-
         prompt = f"""You are analyzing an agent execution trace.
 
 Problem Statement: {problem_statement}
@@ -288,8 +204,8 @@ Correct Answer: {self.trace.gold_answer}
 Original Outcome: FAILED
 
 An intervention was made at Step {step_id}:
-Original: {self._summarize_step(self.trace.get_step(step_id))}
-Intervened: {self._summarize_step(intervened_step)}
+Original: {summarize_step(self.trace.get_step(step_id))}
+Intervened: {summarize_step(intervened_step)}
 
 Descendants of this step (affected by the intervention):
 """
@@ -297,15 +213,20 @@ Descendants of this step (affected by the intervention):
         for desc_id in sorted(descendants):
             desc_step = self.trace.get_step(desc_id)
             if desc_step:
-                prompt += f"  Step {desc_id}: {self._summarize_step(desc_step)}\n"
+                prompt += f"  Step {desc_id}: {summarize_step(desc_step)}\n"
 
         prompt += f"\nWould this intervention cause the final answer to change to the correct answer ({self.trace.gold_answer})?"
-        prompt += "\n\nRespond with ONLY 'YES' or 'NO'."
+        prompt += "\n\nProvide your prediction, confidence level, and reasoning."
 
         try:
-            response = self.llm_client.generate(prompt, temperature=0.0)
-            return "YES" in response.upper()
-        except Exception:
+            result = self.llm_client.generate_structured(
+                prompt,
+                schema_name="outcome_prediction",
+                temperature=0.0
+            )
+            return result.get("would_succeed", False)
+        except Exception as e:
+            print(f"Error predicting outcome: {e}")
             return False
 
     def get_causal_steps(self) -> List[int]:
@@ -345,7 +266,7 @@ Descendants of this step (affected by the intervention):
                 step = self.trace.get_step(step_id)
                 lines.append(f"\nStep {step_id} (CRS = {crs:.2f}):")
                 lines.append(f"  Type: {step.step_type.value}")
-                lines.append(f"  Summary: {self._summarize_step(step)}")
+                lines.append(f"  Summary: {summarize_step(step)}")
 
                 if step_id in self.intervention_results:
                     result = self.intervention_results[step_id]
@@ -353,7 +274,7 @@ Descendants of this step (affected by the intervention):
                         step_data = result["intervened_step"].copy()
                         step_data["step_type"] = StepType(step_data["step_type"])
                         intervened = Step(**step_data)
-                        lines.append(f"  Intervention: {self._summarize_step(intervened)}")
+                        lines.append(f"  Intervention: {summarize_step(intervened)}")
 
         lines.append("\n" + "=" * 60)
 

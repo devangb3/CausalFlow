@@ -1,7 +1,9 @@
 import os
-from typing import List, Optional
+import json
+from typing import List, Optional, Dict, Any
 from openai import OpenAI
 from dotenv import load_dotenv
+from schemas import LLMSchemas
 
 load_dotenv()
 
@@ -57,6 +59,62 @@ class LLMClient:
         )
 
         return response.choices[0].message.content
+
+    def generate_structured(
+        self,
+        prompt: str,
+        schema_name: str,
+        system_message: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate a structured JSON response following a predefined schema.
+
+        Args:
+            prompt: The user prompt
+            schema_name: Name of the schema to use (e.g., 'intervention', 'repair', 'critique')
+            system_message: Optional system message
+            temperature: Optional temperature override
+            max_tokens: Optional max tokens override
+
+        Returns:
+            Parsed JSON object matching the schema
+
+        Raises:
+            ValueError: If schema_name is invalid or response parsing fails
+        """
+        messages = []
+
+        if system_message:
+            messages.append({
+                "role": "system",
+                "content": system_message
+            })
+
+        messages.append({
+            "role": "user",
+            "content": prompt
+        })
+
+        # Get the response format for structured outputs
+        response_format = LLMSchemas.get_response_format(schema_name)
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=temperature or self.temperature,
+            max_tokens=max_tokens or self.max_tokens,
+            response_format=response_format
+        )
+
+        content = response.choices[0].message.content
+
+        # Parse the JSON response
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse structured response: {e}\nContent: {content}")
 
 class MultiAgentLLM:
     """
