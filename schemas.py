@@ -17,7 +17,7 @@ class InterventionOutput(BaseModel):
         description="The corrected tool arguments as a key-value object"
     )
     explanation: str = Field(
-        required=True,
+        ...,
         description="Brief explanation of what was corrected and why"
     )
 
@@ -26,17 +26,17 @@ class OutcomePrediction(BaseModel):
     """Schema for predicting if an intervention would fix the failure."""
 
     would_succeed: bool = Field(
-        required=True,
+        ...,
         description="Whether the intervention would likely fix the failure"
     )
     confidence: float = Field(
-        required=True,
+        ...,
         ge=0.0,
         le=1.0,
         description="Confidence level between 0.0 and 1.0"
     )
     reasoning: str = Field(
-        required=True,
+        ...,
         description="Brief explanation of the prediction"
     )
 
@@ -57,11 +57,11 @@ class RepairOutput(BaseModel):
         description="The repaired tool arguments (if step is a tool call)"
     )
     changes_made: List[str] = Field(
-        required=True,
+        ...,
         description="List of specific changes made to achieve minimal repair"
     )
     minimality_justification: str = Field(
-        required=True,
+        ...,
         description="Explanation of why this is the minimal necessary change"
     )
 
@@ -70,18 +70,18 @@ class CritiqueOutput(BaseModel):
     """Schema for multi-agent critique outputs."""
 
     agreement: str = Field(
-        required=True,
+        ...,
         pattern="^(AGREE|DISAGREE|PARTIAL)$",
         description="Level of agreement with the causal claim"
     )
     confidence: float = Field(
-        required=True,
+        ...,
         ge=0.0,
         le=1.0,
         description="Confidence in this critique between 0.0 and 1.0"
     )
     reasoning: str = Field(
-        required=True,
+        ...,
         description="Detailed explanation of the critique"
     )
     alternative_explanation: Optional[str] = Field(
@@ -89,7 +89,7 @@ class CritiqueOutput(BaseModel):
         description="Alternative causal explanation if disagreeing"
     )
     evidence_strength: str = Field(
-        required=True,
+        ...,
         pattern="^(STRONG|MODERATE|WEAK)$",
         description="Strength of evidence for the causal claim"
     )
@@ -99,11 +99,11 @@ class ToolArgsOutput(BaseModel):
     """Schema for parsing tool arguments from text."""
 
     parsed_args: Dict[str, Any] = Field(
-        required=True,
+        ...,
         description="Extracted tool arguments as key-value pairs"
     )
     confidence: float = Field(
-        required=True,
+        ...,
         ge=0.0,
         le=1.0,
         description="Confidence in the parsing between 0.0 and 1.0"
