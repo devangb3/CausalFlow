@@ -69,22 +69,7 @@ class LLMClient:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None
     ) -> BaseModel:
-        """
-        Generate a structured response following a predefined Pydantic schema.
 
-        Args:
-            prompt: The user prompt
-            schema_name: Name of the schema to use (e.g., 'intervention', 'repair', 'critique')
-            system_message: Optional system message
-            temperature: Optional temperature override
-            max_tokens: Optional max tokens override
-
-        Returns:
-            Validated Pydantic model instance matching the schema
-
-        Raises:
-            ValueError: If schema_name is invalid, response parsing fails, or validation fails
-        """
         messages = []
 
         if system_message:
@@ -121,12 +106,6 @@ class LLMClient:
             raise ValueError(f"Response validation failed: {e}\nContent: {content}")
 
 class MultiAgentLLM:
-    """
-    Manages multiple LLM instances for multi-agent critique.
-
-    This allows using different models or configurations for different agents
-    in the critique process.
-    """
 
     def __init__(
         self,

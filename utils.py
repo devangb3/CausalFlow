@@ -1,22 +1,8 @@
-"""
-Utility functions used across the codebase.
-Centralizes common operations to reduce code duplication.
-"""
-
-from typing import Optional
 from trace_logger import Step, StepType
 
 
 def summarize_step(step: Step) -> str:
-    """
-    Convert a Step object into a human-readable summary string.
 
-    Args:
-        step: The Step object to summarize
-
-    Returns:
-        A concise string representation of the step
-    """
     if step.step_type == StepType.REASONING:
         return f"[Reasoning] {step.text}"
 
@@ -25,7 +11,7 @@ def summarize_step(step: Step) -> str:
         return f"[Tool Call] {step.tool_name}({args_str})"
 
     elif step.step_type == StepType.TOOL_RESPONSE:
-        output_str = str(step.tool_output)[:100]  # Truncate long outputs
+        output_str = str(step.tool_output)
         return f"[Tool Response] {output_str}"
 
     elif step.step_type == StepType.MEMORY_ACCESS:
@@ -45,15 +31,7 @@ def summarize_step(step: Step) -> str:
 
 
 def extract_step_text(step: Step) -> str:
-    """
-    Extract the primary text content from a step based on its type.
 
-    Args:
-        step: The Step object to extract text from
-
-    Returns:
-        The text content of the step
-    """
     if step.step_type == StepType.REASONING:
         return step.text or ""
 
@@ -81,16 +59,6 @@ def extract_step_text(step: Step) -> str:
 
 
 def format_step_context(step: Step, context: str) -> str:
-    """
-    Format a step with its context for prompts.
-
-    Args:
-        step: The Step object
-        context: Context information (e.g., from dependencies)
-
-    Returns:
-        Formatted string combining step and context
-    """
     step_summary = summarize_step(step)
 
     if context:
@@ -107,17 +75,7 @@ Content: {step_summary}"""
 
 
 def calculate_text_similarity(text1: str, text2: str) -> float:
-    """
-    Calculate a simple token-based similarity score between two texts.
-    Used for minimality scoring.
 
-    Args:
-        text1: First text
-        text2: Second text
-
-    Returns:
-        Similarity score between 0.0 and 1.0 (1.0 = identical)
-    """
     # Simple word-based tokenization
     tokens1 = set(text1.lower().split())
     tokens2 = set(text2.lower().split())
@@ -136,17 +94,7 @@ def calculate_text_similarity(text1: str, text2: str) -> float:
 
 
 def calculate_minimality_score(original: str, modified: str) -> float:
-    """
-    Calculate minimality score based on how much text was changed.
-    Higher score = more minimal (fewer changes).
 
-    Args:
-        original: Original text
-        modified: Modified text
-
-    Returns:
-        Minimality score between 0.0 and 1.0 (1.0 = no changes)
-    """
     if original == modified:
         return 1.0
 
@@ -173,33 +121,10 @@ def calculate_minimality_score(original: str, modified: str) -> float:
 
 
 def parse_agreement(text: str) -> bool:
-    """
-    Parse agreement from critique response text.
 
-    Args:
-        text: Response text containing agreement indicator
-
-    Returns:
-        True if AGREE, False if DISAGREE or PARTIAL
-    """
     text_upper = text.upper()
 
     if "AGREE" in text_upper and "DISAGREE" not in text_upper:
         return True
 
     return False
-
-
-def safe_get(dict_obj: dict, key: str, default=None):
-    """
-    Safely get a value from a dictionary with a default.
-
-    Args:
-        dict_obj: Dictionary to get value from
-        key: Key to look up
-        default: Default value if key not found
-
-    Returns:
-        Value from dictionary or default
-    """
-    return dict_obj.get(key, default)
