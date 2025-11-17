@@ -147,17 +147,17 @@ class MultiAgentCritique:
                 temperature=0.3
             )
 
-            # Extract structured fields
-            agrees = result.get("agreement", "DISAGREE") in ["AGREE", "PARTIAL"]
-            confidence = result.get("confidence", 0.5)
-            reasoning = result.get("reasoning", "")
+            # Extract structured fields from Pydantic model
+            agrees = result.agreement in ["AGREE", "PARTIAL"]
+            confidence = result.confidence
+            reasoning = result.reasoning
 
             return {
                 "response": reasoning,
                 "agrees": agrees,
                 "confidence": confidence,
-                "agreement": result.get("agreement", "DISAGREE"),
-                "evidence_strength": result.get("evidence_strength", "WEAK")
+                "agreement": result.agreement,
+                "evidence_strength": result.evidence_strength
             }
 
         except Exception as e:

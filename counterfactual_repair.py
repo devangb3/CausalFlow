@@ -9,6 +9,7 @@ while still correcting the failure.
 import copy
 import json
 from typing import Dict, List, Any, Optional
+from pydantic import BaseModel
 from trace_logger import TraceLogger, Step, StepType
 from causal_attribution import CausalAttribution
 from llm_client import LLMClient
@@ -191,13 +192,13 @@ Step {step.step_id} ({step.step_type.value}):
 
         return prompt
 
-    def _apply_repair(self, original_step: Step, repair_result: Dict[str, Any]) -> Step:
+    def _apply_repair(self, original_step: Step, repair_result: BaseModel) -> Step:
         """
-        Apply a repair result (structured output) to create a repaired step.
+        Apply a repair result (Pydantic model) to create a repaired step.
 
         Args:
             original_step: The original step
-            repair_result: Structured repair output from LLM
+            repair_result: Pydantic RepairOutput model from LLM
 
         Returns:
             Repaired step
@@ -205,23 +206,23 @@ Step {step.step_id} ({step.step_type.value}):
         repaired_step = copy.deepcopy(original_step)
 
         if original_step.step_type == StepType.REASONING:
-            repaired_step.text = repair_result.get("repaired_text", original_step.text)
+            repaired_step.text = repair_result.repaired_text or original_step.text
 
         elif original_step.step_type == StepType.TOOL_CALL:
             # Use structured tool args and name directly
-            if "repaired_tool_args" in repair_result:
-                repaired_step.tool_args = repair_result["repaired_tool_args"]
-            if "repaired_tool_name" in repair_result:
-                repaired_step.tool_name = repair_result["repaired_tool_name"]
+            if repair_result.repaired_tool_args is not None:
+                repaired_step.tool_args = repair_result.repaired_tool_args
+            if repair_result.repaired_tool_name is not None:
+                repaired_step.tool_name = repair_result.repaired_tool_name
 
         elif original_step.step_type == StepType.MEMORY_ACCESS:
-            repaired_step.memory_value = repair_result.get("repaired_text", original_step.memory_value)
+            repaired_step.memory_value = repair_result.repaired_text or original_step.memory_value
 
         elif original_step.step_type == StepType.ENVIRONMENT_ACTION:
-            repaired_step.action = repair_result.get("repaired_text", original_step.action)
+            repaired_step.action = repair_result.repaired_text or original_step.action
 
         else:
-            repaired_step.text = repair_result.get("repaired_text", original_step.text)
+            repaired_step.text = repair_result.repaired_text or original_step.text
 
         return repaired_step
 

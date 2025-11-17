@@ -101,18 +101,18 @@ class CausalAttribution:
             intervened_step = copy.deepcopy(step)
 
             if step.step_type == StepType.REASONING:
-                intervened_step.text = result.get("corrected_reasoning", step.text)
+                intervened_step.text = result.corrected_reasoning or step.text
             elif step.step_type == StepType.TOOL_CALL:
                 # Use structured tool args directly
-                if "corrected_tool_args" in result:
-                    intervened_step.tool_args = result["corrected_tool_args"]
-                if "corrected_tool_name" in result:
-                    intervened_step.tool_name = result["corrected_tool_name"]
+                if result.corrected_tool_args is not None:
+                    intervened_step.tool_args = result.corrected_tool_args
+                if result.corrected_tool_name is not None:
+                    intervened_step.tool_name = result.corrected_tool_name
             elif step.step_type == StepType.MEMORY_ACCESS:
-                intervened_step.memory_value = result.get("corrected_reasoning", step.memory_value)
+                intervened_step.memory_value = result.corrected_reasoning or step.memory_value
             else:
                 # For other types, update the text field
-                intervened_step.text = result.get("corrected_reasoning", step.text)
+                intervened_step.text = result.corrected_reasoning or step.text
 
             return intervened_step
 
@@ -224,7 +224,7 @@ Descendants of this step (affected by the intervention):
                 schema_name="outcome_prediction",
                 temperature=0.0
             )
-            return result.get("would_succeed", False)
+            return result.would_succeed
         except Exception as e:
             print(f"Error predicting outcome: {e}")
             return False

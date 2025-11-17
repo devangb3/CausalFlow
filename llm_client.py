@@ -3,6 +3,7 @@ import json
 from typing import List, Optional, Dict, Any
 from openai import OpenAI
 from dotenv import load_dotenv
+from pydantic import BaseModel, ValidationError
 from schemas import LLMSchemas
 
 load_dotenv()
@@ -67,9 +68,9 @@ class LLMClient:
         system_message: Optional[str] = None,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None
-    ) -> Dict[str, Any]:
+    ) -> BaseModel:
         """
-        Generate a structured JSON response following a predefined schema.
+        Generate a structured response following a predefined Pydantic schema.
 
         Args:
             prompt: The user prompt
@@ -79,10 +80,10 @@ class LLMClient:
             max_tokens: Optional max tokens override
 
         Returns:
-            Parsed JSON object matching the schema
+            Validated Pydantic model instance matching the schema
 
         Raises:
-            ValueError: If schema_name is invalid or response parsing fails
+            ValueError: If schema_name is invalid, response parsing fails, or validation fails
         """
         messages = []
 
@@ -110,11 +111,14 @@ class LLMClient:
 
         content = response.choices[0].message.content
 
-        # Parse the JSON response
+        # Parse and validate the JSON response using Pydantic
         try:
-            return json.loads(content)
+            data = json.loads(content)
+            return LLMSchemas.parse_response(schema_name, data)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse structured response: {e}\nContent: {content}")
+            raise ValueError(f"Failed to parse JSON response: {e}\nContent: {content}")
+        except ValidationError as e:
+            raise ValueError(f"Response validation failed: {e}\nContent: {content}")
 
 class MultiAgentLLM:
     """
