@@ -9,9 +9,11 @@ while still correcting the failure.
 import copy
 import json
 from typing import Dict, List, Any, Optional
+from pydantic import BaseModel
 from trace_logger import TraceLogger, Step, StepType
 from causal_attribution import CausalAttribution
 from llm_client import LLMClient
+from utils import extract_step_text, calculate_minimality_score
 
 
 class Repair:
@@ -56,21 +58,9 @@ class CounterfactualRepair:
 
     def generate_repairs(
         self,
-        step_ids: Optional[List[int]] = None,
+        step_ids: List[int],
         num_proposals: int = 3
     ) -> Dict[int, List[Repair]]:
-        """
-        Generate repairs for causally responsible steps.
-
-        Args:
-            step_ids: Optional list of step IDs to repair (if None, uses causal steps)
-            num_proposals: Number of repair proposals to generate per step
-
-        Returns:
-            Dictionary mapping step_id to list of repair proposals
-        """
-        if step_ids is None:
-            step_ids = self.causal_attribution.get_causal_steps()
 
         for step_id in step_ids:
             self.repairs[step_id] = self._generate_repairs_for_step(
@@ -94,20 +84,23 @@ class CounterfactualRepair:
         proposals = []
         previous_steps = all_steps[:step_id]
         for i in range(num_proposals):
-            prompt = self._create_repair_prompt(original_step, previous_steps, proposal_num=i)
+            prompt = self._create_repair_prompt(original_step, previous_steps)
 
             try:
-                repaired_content = self.llm_client.generate(
+                result = self.llm_client.generate_structured(
                     prompt,
+                    schema_name="repair",
                     system_message="You are an expert at debugging and fixing agent reasoning. Generate minimal, targeted edits.",
-                    temperature=0.7  # Some variety in proposals
+                    temperature=0.7
                 )
 
                 # Create repaired step
-                repaired_step = self._apply_repair(original_step, repaired_content)
+                repaired_step = self._apply_repair(original_step, result)
 
-                # Calculate minimality score
-                minimality = self._calculate_minimality(original_step, repaired_step)
+                minimality = calculate_minimality_score(
+                    extract_step_text(original_step),
+                    extract_step_text(repaired_step)
+                )
 
                 # Predict if this repair would succeed
                 success_predicted = self._predict_repair_success(step_id, repaired_step)
@@ -131,13 +124,15 @@ class CounterfactualRepair:
 
         return proposals
 
-    def _create_repair_prompt(self, step: Step, previous_steps: List[Step], proposal_num: int = 0) -> str:
-
+    def _create_repair_prompt(self, step: Step, previous_steps: List[Step]) -> str:
+        
         prompt = f"""You are debugging a failed agent execution. The agent's final answer was incorrect.
 
 Problem Statement: {self.trace.problem_statement}
+Correct Answer: {self.trace.gold_answer}
+Agent's Incorrect Answer: {self.trace.final_answer}
 
-Previous steps in the trace:
+Recent previous steps:
 {json.dumps([step.to_dict() for step in previous_steps], indent=2)}
 
 Below is the step that has been identified as causally responsible for the failure.
@@ -148,128 +143,62 @@ Step {step.step_id} ({step.step_type.value}):
         if step.step_type == StepType.REASONING:
             prompt += f"Original Reasoning: {step.text}\n\n"
             prompt += "Provide a MINIMAL correction to this reasoning that would lead to the correct answer.\n"
-            prompt += "Change only what is necessary."
+            prompt += "Fill in 'repaired_text' with the corrected reasoning.\n"
+            prompt += "List the specific changes in 'changes_made'.\n"
+            prompt += "Explain why this is minimal in 'minimality_justification'."
 
         elif step.step_type == StepType.TOOL_CALL:
             prompt += f"Tool: {step.tool_name}\n"
             prompt += f"Original Arguments: {step.tool_args}\n\n"
-            prompt += "Provide corrected tool arguments (JSON format).\n"
-            prompt += "Change only the incorrect arguments."
+            prompt += "Provide corrected tool name and arguments.\n"
+            prompt += "Fill in 'repaired_tool_name' and 'repaired_tool_args'.\n"
+            prompt += "List the specific changes in 'changes_made'.\n"
+            prompt += "Explain why this is minimal in 'minimality_justification'."
 
         elif step.step_type == StepType.MEMORY_ACCESS:
             prompt += f"Memory Key: {step.memory_key}\n"
             prompt += f"Original Value: {step.memory_value}\n\n"
-            prompt += "Provide the correct memory value."
+            prompt += "Provide the correct memory value in 'repaired_text'.\n"
+            prompt += "List changes in 'changes_made'.\n"
+            prompt += "Explain minimality in 'minimality_justification'."
 
         else:
             content = step.text or step.action or step.observation
             prompt += f"Original Content: {content}\n\n"
-            prompt += "Provide a minimal correction."
+            prompt += "Provide a minimal correction in 'repaired_text'.\n"
+            prompt += "List changes in 'changes_made'.\n"
+            prompt += "Explain minimality in 'minimality_justification'."
 
-        prompt += f"\n\nCorrect Answer: {self.trace.gold_answer}"
-        prompt += f"\nAgent's Incorrect Answer: {self.trace.final_answer}"
-
-        if proposal_num > 0:
-            prompt += f"\n\nThis is proposal #{proposal_num + 1}. Consider alternative minimal fixes."
-
-        prompt += "\n\nProvide ONLY the corrected content, nothing else."
+        prompt += "\n\nRemember: Change ONLY what is absolutely necessary to fix the error."
 
         return prompt
 
-    def _apply_repair(self, original_step: Step, repaired_content: str) -> Step:
-
+    def _apply_repair(self, original_step: Step, repair_result: BaseModel) -> Step:
         repaired_step = copy.deepcopy(original_step)
 
         if original_step.step_type == StepType.REASONING:
-            repaired_step.text = repaired_content.strip()
+            repaired_step.text = repair_result.repaired_text or original_step.text
 
         elif original_step.step_type == StepType.TOOL_CALL:
-            # Parse tool arguments
-            import json
-            import re
-
-            json_match = re.search(r'\{.*\}', repaired_content, re.DOTALL)
-            if json_match:
-                try:
-                    repaired_step.tool_args = json.loads(json_match.group())
-                except json.JSONDecodeError:
-                    repaired_step.tool_args = {"value": repaired_content.strip()}
-            else:
-                repaired_step.tool_args = {"value": repaired_content.strip()}
+            # Use structured tool args and name directly
+            if repair_result.repaired_tool_args is not None:
+                repaired_step.tool_args = repair_result.repaired_tool_args
+            if repair_result.repaired_tool_name is not None:
+                repaired_step.tool_name = repair_result.repaired_tool_name
 
         elif original_step.step_type == StepType.MEMORY_ACCESS:
-            repaired_step.memory_value = repaired_content.strip()
+            repaired_step.memory_value = repair_result.repaired_text or original_step.memory_value
 
         elif original_step.step_type == StepType.ENVIRONMENT_ACTION:
-            repaired_step.action = repaired_content.strip()
+            repaired_step.action = repair_result.repaired_text or original_step.action
 
         else:
-            repaired_step.text = repaired_content.strip()
+            repaired_step.text = repair_result.repaired_text or original_step.text
 
         return repaired_step
 
-    def _calculate_minimality(self, original_step: Step, repaired_step: Step) -> float:
-        """
-        Calculate minimality score: how small is the edit?
-
-        Formula: MS = 1 - (tokens_changed / tokens_original)
-
-        Args:
-            original_step: Original step
-            repaired_step: Repaired step
-
-        Returns:
-            Minimality score (0-1, higher is more minimal)
-        """
-        # Extract text content from both steps
-        original_text = self._extract_step_text(original_step)
-        repaired_text = self._extract_step_text(repaired_step)
-
-        if not original_text:
-            return 0.0
-
-        # Simple token-based calculation
-        original_tokens = original_text.split()
-        repaired_tokens = repaired_text.split()
-
-        # Count different tokens
-        tokens_changed = sum(
-            1 for o, r in zip(original_tokens, repaired_tokens) if o != r
-        )
-        tokens_changed += abs(len(original_tokens) - len(repaired_tokens))
-
-        if len(original_tokens) == 0:
-            return 0.0
-
-        minimality = 1.0 - (tokens_changed / len(original_tokens))
-        return max(0.0, min(1.0, minimality))  # Clamp to [0, 1]
-
-    def _extract_step_text(self, step: Step) -> str:
-        """
-        Extract text content from a step for comparison.
-
-        Args:
-            step: The step
-
-        Returns:
-            Text content
-        """
-        if step.step_type == StepType.REASONING:
-            return step.text or ""
-        elif step.step_type == StepType.TOOL_CALL:
-            return str(step.tool_args)
-        elif step.step_type == StepType.MEMORY_ACCESS:
-            return str(step.memory_value)
-        elif step.step_type == StepType.ENVIRONMENT_ACTION:
-            return step.action or ""
-        elif step.step_type == StepType.ENVIRONMENT_OBSERVATION:
-            return step.observation or ""
-        else:
-            return step.text or ""
-
     def _predict_repair_success(self, step_id: int, repaired_step: Step) -> bool:
 
-        # Use the same prediction method as causal attribution
         return self.causal_attribution._llm_predict_outcome(
             step_id, repaired_step, self.trace.problem_statement
         )
@@ -282,10 +211,8 @@ Step {step.step_id} ({step.step_type.value}):
         successful = [r for r in self.repairs[step_id] if r.success_predicted]
 
         if not successful:
-            # If no successful repairs, return most minimal one
             return None
 
-        # Return most minimal successful repair
         return max(successful, key=lambda r: r.minimality_score)
 
     def get_all_best_repairs(self) -> Dict[int, Repair]:
@@ -316,12 +243,12 @@ Step {step.step_id} ({step.step_type.value}):
             lines.append(f"\nStep {step_id} ({step.step_type.value}):")
             lines.append("-" * 60)
 
-            original_text = self._extract_step_text(step)
+            original_text = extract_step_text(step)
             lines.append(f"Original: {original_text}")
 
             best = self.get_best_repair(step_id)
             if best:
-                repaired_text = self._extract_step_text(best.repaired_step)
+                repaired_text = extract_step_text(best.repaired_step)
                 lines.append(f"Best Repair: {repaired_text}")
                 lines.append(f"Minimality: {best.minimality_score:.2f}")
                 lines.append(f"Success Predicted: {best.success_predicted}")

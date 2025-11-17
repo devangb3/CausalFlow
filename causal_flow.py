@@ -69,7 +69,7 @@ class CausalFlow:
                 causal_attribution=self.causal_attribution,
                 llm_client=self.llm_client
             )
-            repairs = self.counterfactual_repair.generate_repairs()
+            repairs = self.counterfactual_repair.generate_repairs(step_ids=causal_steps)
             print(f"Repair complete: {sum(len(r) for r in repairs.values())} repairs proposed")
         else:
             print("\n[3/5] Skipping counterfactual repair...")

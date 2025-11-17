@@ -1,7 +1,10 @@
 import os
-from typing import List, Optional
+import json
+from typing import List, Optional, Dict, Any
 from openai import OpenAI
 from dotenv import load_dotenv
+from pydantic import BaseModel, ValidationError
+from schemas import LLMSchemas
 
 load_dotenv()
 
@@ -58,13 +61,51 @@ class LLMClient:
 
         return response.choices[0].message.content
 
-class MultiAgentLLM:
-    """
-    Manages multiple LLM instances for multi-agent critique.
+    def generate_structured(
+        self,
+        prompt: str,
+        schema_name: str,
+        system_message: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None
+    ) -> BaseModel:
 
-    This allows using different models or configurations for different agents
-    in the critique process.
-    """
+        messages = []
+
+        if system_message:
+            messages.append({
+                "role": "system",
+                "content": system_message
+            })
+
+        messages.append({
+            "role": "user",
+            "content": prompt
+        })
+
+        # Get the response format for structured outputs
+        response_format = LLMSchemas.get_response_format(schema_name)
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=temperature or self.temperature,
+            max_tokens=max_tokens or self.max_tokens,
+            response_format=response_format
+        )
+
+        content = response.choices[0].message.content
+
+        # Parse and validate the JSON response using Pydantic
+        try:
+            data = json.loads(content)
+            return LLMSchemas.parse_response(schema_name, data)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse JSON response: {e}\nContent: {content}")
+        except ValidationError as e:
+            raise ValueError(f"Response validation failed: {e}\nContent: {content}")
+
+class MultiAgentLLM:
 
     def __init__(
         self,

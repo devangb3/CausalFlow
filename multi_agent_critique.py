@@ -3,6 +3,7 @@ from typing import Dict, List, Any, Tuple, Optional
 from trace_logger import TraceLogger, Step
 from causal_attribution import CausalAttribution
 from llm_client import MultiAgentLLM, LLMClient
+from utils import summarize_step
 
 
 class CritiqueResult:
@@ -139,20 +140,24 @@ class MultiAgentCritique:
 
         try:
             agent = self.multi_agent_llm.get_agent(agent_index)
-            response = agent.generate(
+            result = agent.generate_structured(
                 prompt,
+                schema_name="critique",
                 system_message=f"You are a critical evaluator (role: {role}) analyzing causal claims.",
                 temperature=0.3
             )
 
-            # Parse response for agreement and confidence
-            agrees = self._parse_agreement(response)
-            confidence = self._parse_confidence(response)
+            # Extract structured fields from Pydantic model
+            agrees = result.agreement in ["AGREE", "PARTIAL"]
+            confidence = result.confidence
+            reasoning = result.reasoning
 
             return {
-                "response": response,
+                "response": reasoning,
                 "agrees": agrees,
-                "confidence": confidence
+                "confidence": confidence,
+                "agreement": result.agreement,
+                "evidence_strength": result.evidence_strength
             }
 
         except Exception as e:
@@ -160,7 +165,9 @@ class MultiAgentCritique:
             return {
                 "response": f"Error: {str(e)}",
                 "agrees": False,
-                "confidence": 0.0
+                "confidence": 0.0,
+                "agreement": "DISAGREE",
+                "evidence_strength": "WEAK"
             }
 
     def _create_critique_prompt(
@@ -179,6 +186,7 @@ PROBLEM STATEMENT:
 EXECUTION TRACE SUMMARY:
 - Task outcome: FAILED
 - Final answer: {self.trace.final_answer}
+- Correct answer: {self.trace.gold_answer}
 - Total steps: {len(self.trace.steps)}
 
 CAUSAL CLAIM:
@@ -188,7 +196,7 @@ Causal Responsibility Score (CRS): {crs_score}
 STEP DETAILS:
 - Step ID: {step.step_id}
 - Type: {step.step_type.value}
-- Content: {self._summarize_step(step)}
+- Content: {summarize_step(step)}
 - Dependencies: {step.dependencies}
 
 DESCENDANTS (affected by this step):
@@ -198,7 +206,7 @@ DESCENDANTS (affected by this step):
         for desc_id in descendants:
             desc_step = self.trace.get_step(desc_id)
             if desc_step:
-                prompt += f"  Step {desc_id}: {self._summarize_step(desc_step)}\n"
+                prompt += f"  Step {desc_id}: {summarize_step(desc_step)}\n"
 
         if previous_critique:
             prompt += f"\nPREVIOUS CRITIQUE:\n{previous_critique}\n"
@@ -213,48 +221,17 @@ Consider:
 3. Are there alternative explanations for the failure?
 4. Is the causal chain from this step to the final failure clear?
 
-Provide your critique in the following format:
-
-AGREEMENT: [AGREE/DISAGREE/PARTIAL]
-CONFIDENCE: [0.0-1.0]
-REASONING: [Your detailed reasoning]
+Provide your structured critique with:
+- 'agreement': AGREE if you believe the claim, DISAGREE if not, PARTIAL if uncertain
+- 'confidence': A number between 0.0 and 1.0
+- 'reasoning': Your detailed explanation
+- 'alternative_explanation': If disagreeing, provide an alternative explanation
+- 'evidence_strength': STRONG, MODERATE, or WEAK based on evidence quality
 
 Be thorough and critical. Challenge weak causal claims.
 """
 
         return prompt
-
-    def _summarize_step(self, step: Step) -> str:
-
-        return self.causal_attribution._summarize_step(step)
-
-    def _parse_agreement(self, response: str) -> bool:
-
-        response_upper = response.upper()
-
-        if "AGREEMENT: AGREE" in response_upper or "AGREEMENT:AGREE" in response_upper:
-            return True
-        elif "AGREEMENT: PARTIAL" in response_upper or "AGREEMENT:PARTIAL" in response_upper:
-            return True  # Count partial as agreement
-        else:
-            return False
-
-    def _parse_confidence(self, response: str) -> float:
-
-        import re
-
-        # Look for CONFIDENCE: X.X pattern
-        match = re.search(r'CONFIDENCE:\s*([0-9.]+)', response, re.IGNORECASE)
-
-        if match:
-            try:
-                confidence = float(match.group(1))
-                return max(0.0, min(1.0, confidence))  # Clamp to [0, 1]
-            except ValueError:
-                pass
-
-        # Default: medium confidence if no explicit score
-        return 0.5
 
     def _calculate_consensus(
         self,
@@ -319,7 +296,7 @@ Be thorough and critical. Challenge weak causal claims.
 
             lines.append(f"\nStep {step_id} ({step.step_type.value}):")
             lines.append("-" * 60)
-            lines.append(f"Content: {self._summarize_step(step)}")
+            lines.append(f"Content: {summarize_step(step)}")
             lines.append(f"Proposed by: {result.proposed_by}")
             lines.append(f"Consensus Score: {result.consensus_score:.2f}")
             lines.append(f"Final Verdict: {'CAUSAL' if result.final_verdict else 'NOT CAUSAL'}")
