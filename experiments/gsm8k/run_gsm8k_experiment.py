@@ -58,7 +58,7 @@ class GSM8KExperiment:
         os.makedirs(output_dir, exist_ok=True)
 
         data = self.data_loader.load_data(num_rows)
-        print(f"\nRunning experiment on {len(data)} problems...")
+        print(f"\nRunning experiment on {len(data)} problems")
 
         stats = {
             'total': len(data),
@@ -97,9 +97,11 @@ class GSM8KExperiment:
 
             if not result['success']:
                 try:
+                    metrics_file = os.path.join(output_dir, f"metrics_{i}.json")
                     analysis = self.causal_flow.analyze_trace(
                         result['trace'],
-                        skip_repair=False
+                        skip_repair=False,
+                        metrics_output_file=metrics_file
                     )
                     report_file = os.path.join(output_dir, f"analysis_{i}.txt")
                     self.causal_flow.generate_full_report(report_file)
@@ -107,10 +109,17 @@ class GSM8KExperiment:
                     results_file = os.path.join(output_dir, f"analysis_{i}.json")
                     self.causal_flow.export_results(results_file)
 
+                    causal_steps = []
+                    if analysis:
+                        if 'multi_agent_critique' in analysis and 'consensus_steps' in analysis['multi_agent_critique']:
+                            causal_steps = [s['step_id'] for s in analysis['multi_agent_critique']['consensus_steps']]
+                        elif 'causal_attribution' in analysis:
+                            causal_steps = analysis['causal_attribution'].get('causal_steps', [])
+
                     problem_result['causal_analysis'] = {
                         'report_file': report_file,
                         'results_file': results_file,
-                        'causal_steps': list(analysis.get('attribution', {}).keys()) if analysis else []
+                        'causal_steps': causal_steps
                     }
 
                     stats['analyzed'] += 1
@@ -159,7 +168,7 @@ class GSM8KExperiment:
 
         report = []
         report.append("=" * 80)
-        report.append("CausalFlow Benefits Report for GSM8K")
+        report.append("CausalFlow Report for GSM8K")
         report.append("=" * 80)
         report.append("")
 
@@ -194,7 +203,7 @@ class GSM8KExperiment:
         with open(report_file, 'w') as f:
             f.write('\n'.join(report))
 
-        print(f"\nBenefits report saved to: {report_file}")
+        print(f"\nReport saved to: {report_file}")
         print('\n'.join(report))
 
 

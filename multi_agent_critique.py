@@ -1,10 +1,8 @@
-
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Any, Optional
 from trace_logger import TraceLogger, Step
 from causal_attribution import CausalAttribution
-from llm_client import MultiAgentLLM, LLMClient
+from llm_client import MultiAgentLLM
 from utils import summarize_step
-
 
 class CritiqueResult:
 
@@ -215,6 +213,10 @@ DESCENDANTS (affected by this step):
 YOUR TASK ({role}):
 Critically evaluate whether Step {step.step_id} is truly causally responsible for the failure.
 
+IMPORTANT:
+- Focus on the CONTENT of Step {step.step_id} shown above. Do not be confused by any internal numbering (e.g. "Step 1") within the text content.
+- If the step contains multiple parts (e.g. a full reasoning chain), evaluate if ANY part of it is incorrect and causes the failure.
+
 Consider:
 1. Is this step actually incorrect or problematic?
 2. Would fixing this step alone lead to success?
@@ -222,7 +224,7 @@ Consider:
 4. Is the causal chain from this step to the final failure clear?
 
 Provide your structured critique with:
-- 'agreement': AGREE if you believe the claim, DISAGREE if not, PARTIAL if uncertain
+- 'agreement': AGREE if you believe the step contains an error that contributes to the failure. DISAGREE if you believe the step is correct. PARTIAL if uncertain.
 - 'confidence': A number between 0.0 and 1.0
 - 'reasoning': Your detailed explanation
 - 'alternative_explanation': If disagreeing, provide an alternative explanation
@@ -307,7 +309,7 @@ Be thorough and critical. Challenge weak causal claims.
                 lines.append(f"    Agrees: {critique['agrees']}")
                 lines.append(f"    Confidence: {critique['confidence']:.2f}")
                 reasoning = critique['response'].split('REASONING:')[-1].strip()
-                lines.append(f"    Reasoning: {reasoning}...")
+                lines.append(f"    Reasoning: {reasoning}")
                 lines.append("")
 
         lines.append("=" * 60)

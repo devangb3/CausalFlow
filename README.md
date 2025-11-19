@@ -116,7 +116,7 @@ Captures every internal step of agent execution:
 from trace_logger import TraceLogger
 
 logger = TraceLogger()
-step_id = logger.log_reasoning("I need to solve this problem...", dependencies=[])
+step_id = logger.log_reasoning("I need to solve this problem", dependencies=[])
 ```
 
 ### 2. Causal Graph Construction (`causal_graph.py`)

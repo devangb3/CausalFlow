@@ -159,8 +159,8 @@ Provide your solution:"""
             start_pos = max(0, match.start() - 200)
             context = solution[start_pos:match.start()]
 
-            step_match = re.search(r'STEP:\s*(.+?)(?:\n|$)', context)
-            desc = step_match.group(1).strip() if step_match else f"Calculate {expr}"
+            step_matches = list(re.finditer(r'STEP:\s*(.+?)(?:\n|$)', context))
+            desc = step_matches[-1].group(1).strip() if step_matches else f"Calculate {expr}"
 
             calculations.append({
                 'expression': expr,

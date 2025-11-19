@@ -136,7 +136,9 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
 
         if step.step_type == StepType.REASONING:
             prompt += f"Original Reasoning: {step.text}\n\n"
-            prompt += "Provide a corrected version of this reasoning step that would lead to the correct answer. Fill in the 'corrected_reasoning' field."
+            prompt += "Provide a corrected version of this reasoning step that would lead to the correct answer.\n"
+            prompt += "CRITICAL: Compare the reasoning against the Problem Statement. If the logic contradicts the problem statement (e.g. ignoring a constraint like 'restart from beginning'), you MUST correct it.\n"
+            prompt += "Fill in the 'corrected_reasoning' field."
 
         elif step.step_type == StepType.TOOL_CALL:
             prompt += f"Tool: {step.tool_name}\n"
@@ -216,6 +218,7 @@ Descendants of this step (affected by the intervention):
                 prompt += f"  Step {desc_id}: {summarize_step(desc_step)}\n"
 
         prompt += f"\nWould this intervention cause the final answer to change to the correct answer ({self.trace.gold_answer})?"
+        prompt += "\nIMPORTANT: Be conservative. If the intervention is trivial (e.g. only formatting changes, removing units) or does not address the root logical error, answer FALSE."
         prompt += "\n\nProvide your prediction, confidence level, and reasoning."
 
         try:

@@ -48,11 +48,11 @@ class CausalFlow:
 
         self.trace = trace
 
-        print("\n[1/5] Constructing causal graph...")
+        print("\n[1/5] Constructing causal graph")
         self.causal_graph = CausalGraph(trace)
         print(f"Graph constructed: {self.causal_graph}")
 
-        print("\n[2/5] Performing causal attribution...")
+        print("\n[2/5] Performing causal attribution")
         self.causal_attribution = CausalAttribution(
             trace=trace,
             causal_graph=self.causal_graph,
@@ -63,7 +63,7 @@ class CausalFlow:
         print(f"Attribution complete: {len(causal_steps)} causal steps identified")
 
         if not skip_repair:
-            print("\n[3/5] Generating counterfactual repairs...")
+            print("\n[3/5] Generating counterfactual repairs")
             self.counterfactual_repair = CounterfactualRepair(
                 trace=trace,
                 causal_attribution=self.causal_attribution,
@@ -72,10 +72,10 @@ class CausalFlow:
             repairs = self.counterfactual_repair.generate_repairs(step_ids=causal_steps)
             print(f"Repair complete: {sum(len(r) for r in repairs.values())} repairs proposed")
         else:
-            print("\n[3/5] Skipping counterfactual repair...")
+            print("\n[3/5] Skipping counterfactual repair")
             repairs = {}
 
-        print("\n[4/5] Running multi-agent critique...")
+        print("\n[4/5] Running multi-agent critique")
         self.multi_agent_critique = MultiAgentCritique(
             trace=trace,
             causal_attribution=self.causal_attribution,
@@ -86,7 +86,7 @@ class CausalFlow:
         print(f"Critique complete: {len(consensus_steps)} steps confirmed by consensus")
 
 
-        print("\n[5/5] Compiling results...")
+        print("\n[5/5] Compiling results")
         results = self._compile_results(
             crs_scores,
             causal_steps,
@@ -95,7 +95,7 @@ class CausalFlow:
             consensus_steps
         )
 
-        print(f"\n[6/6] Generating metrics JSON...")
+        print(f"\n[6/6] Generating metrics JSON")
         self.export_metrics(metrics_output_file, consensus_steps)
         print(f"Metrics saved to: {metrics_output_file}")
 
