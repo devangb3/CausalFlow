@@ -1,34 +1,10 @@
-"""
-Mathematical Reexecutor: A robust non-LLM based executor for verifying mathematical answers.
-
-This module provides utilities to:
-1. Extract numerical values from text (handling units, commas, etc.)
-2. Evaluate mathematical expressions safely
-3. Compare numerical answers with tolerance for floating point errors
-"""
-
 import re
 from typing import Optional, Union, Tuple
 import ast
 import operator
-
-
 class MathReexecutor:
-    """
-    A robust mathematical reexecutor that can extract and verify numerical answers
-    from LLM responses that may contain units, formatting, and natural language.
-    """
-
     def __init__(self, tolerance: float = 1e-6):
-        """
-        Initialize the math reexecutor.
-
-        Args:
-            tolerance: Tolerance for floating point comparisons
-        """
         self.tolerance = tolerance
-
-        # Safe operators for expression evaluation
         self.operators = {
             ast.Add: operator.add,
             ast.Sub: operator.sub,
@@ -42,29 +18,10 @@ class MathReexecutor:
         }
 
     def extract_number(self, text: str) -> Optional[float]:
-        """
-        Extract a numerical value from text, handling various formats.
-
-        Handles:
-        - Simple numbers: "42", "3.14"
-        - Numbers with commas: "1,234.56"
-        - Numbers with units: "42 dollars", "$42", "3.5 kg"
-        - Negative numbers: "-42"
-        - Scientific notation: "1.5e10"
-        - GSM8K format: "#### 42"
-
-        Args:
-            text: Text potentially containing a number
-
-        Returns:
-            Extracted number or None if not found
-        """
         if not text:
             return None
 
         text = str(text).strip()
-
-        # Try GSM8K format first (#### NUMBER)
         gsm8k_pattern = r'####\s*(-?\d+(?:,\d{3})*(?:\.\d+)?)'
         match = re.search(gsm8k_pattern, text)
         if match:
@@ -102,46 +59,43 @@ class MathReexecutor:
         return None
 
     def evaluate_expression(self, expression: str) -> Optional[float]:
-        """
-        Safely evaluate a mathematical expression.
-
-        Only allows basic arithmetic operations to prevent code injection.
-
-        Args:
-            expression: Mathematical expression string (e.g., "120 * 0.35")
-
-        Returns:
-            Result of evaluation or None if invalid
-        """
         try:
-            # Clean the expression
             expression = expression.strip()
-
-            # Parse the expression into an AST
+            
+            if '=' in expression:
+                parts = expression.split('=', 1)  # Split on '=' and get the right-hand side
+                rhs = parts[1].strip()
+                
+                rhs_number = self.extract_number(rhs)
+                if rhs_number is not None:
+                    return float(rhs_number)
+                
+                try:
+                    tree = ast.parse(rhs, mode='eval')
+                    result = self._eval_node(tree.body)
+                    return float(result)
+                except Exception:
+                    pass
+                
+                lhs = parts[0].strip()
+                try:
+                    tree = ast.parse(lhs, mode='eval')
+                    result = self._eval_node(tree.body)
+                    return float(result)
+                except Exception:
+                    pass
+                
+                return None
+            
             tree = ast.parse(expression, mode='eval')
 
-            # Evaluate safely
             result = self._eval_node(tree.body)
             return float(result)
         except Exception:
             return None
 
     def _eval_node(self, node):
-        """
-        Recursively evaluate an AST node with only safe operations.
-
-        Args:
-            node: AST node to evaluate
-
-        Returns:
-            Evaluated result
-
-        Raises:
-            ValueError: If unsupported operation is encountered
-        """
-        if isinstance(node, ast.Num):  # <number>
-            return node.n
-        elif isinstance(node, ast.Constant):  # Python 3.8+
+        if isinstance(node, ast.Constant):
             return node.value
         elif isinstance(node, ast.BinOp):  # <left> <operator> <right>
             if type(node.op) not in self.operators:
@@ -162,16 +116,6 @@ class MathReexecutor:
         answer1: Union[str, float],
         answer2: Union[str, float]
     ) -> bool:
-        """
-        Compare two answers, extracting numbers if needed.
-
-        Args:
-            answer1: First answer (can be string or number)
-            answer2: Second answer (can be string or number)
-
-        Returns:
-            True if answers are equivalent, False otherwise
-        """
         # Extract numbers from both answers
         num1 = self.extract_number(str(answer1)) if isinstance(answer1, str) else answer1
         num2 = self.extract_number(str(answer2)) if isinstance(answer2, str) else answer2
@@ -216,11 +160,9 @@ class MathReexecutor:
         return is_correct, computed
 
 
-# Example usage and tests
 if __name__ == "__main__":
     executor = MathReexecutor()
 
-    # Test number extraction
     print("Testing number extraction:")
     test_cases = [
         "The answer is 42",
@@ -236,7 +178,6 @@ if __name__ == "__main__":
         num = executor.extract_number(text)
         print(f"  '{text}' -> {num}")
 
-    # Test expression evaluation
     print("\nTesting expression evaluation:")
     expressions = [
         "120 * 0.35",
@@ -249,7 +190,6 @@ if __name__ == "__main__":
         result = executor.evaluate_expression(expr)
         print(f"  '{expr}' = {result}")
 
-    # Test answer comparison
     print("\nTesting answer comparison:")
     comparisons = [
         ("42", "42.0"),
@@ -262,7 +202,6 @@ if __name__ == "__main__":
         match = executor.compare_answers(ans1, ans2)
         print(f"  '{ans1}' == '{ans2}': {match}")
 
-    # Test verification
     print("\nTesting calculation verification:")
     verifications = [
         ("120 * 0.35", "42"),

@@ -253,5 +253,3 @@ User Input (GSM8K Problem)
          ↓
    Reports: Causal steps, repairs, critique
 ```
-
-Happy experimenting! 🚀
