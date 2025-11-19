@@ -98,8 +98,8 @@ def calculate_minimality_score(original: str, modified: str) -> float:
     if original == modified:
         return 1.0
 
-    original_tokens = set[str](original.lower().split())
-    modified_tokens = set[str](modified.lower().split())
+    original_tokens = original.lower().split()
+    modified_tokens = modified.lower().split()
 
     if not original_tokens:
         return 0.0 if modified_tokens else 1.0

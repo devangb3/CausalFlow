@@ -257,8 +257,7 @@ class CausalGraph:
 
             # Add step content summary
             if step.text:
-                text_preview = step.text[:60] + "..." if len(step.text) > 60 else step.text
-                lines.append(f"  Text: {text_preview}")
+                lines.append(f"  Text: {step.text}")
             if step.tool_name:
                 lines.append(f"  Tool: {step.tool_name}")
             if step.action:

@@ -10,6 +10,9 @@ __pycache__/
 dist/
 build/
 .venv/
+research/
+gsm8k_test_trace.json
+gsm8k_results*/
 venv/
 .pytest_cache/
 .coverage

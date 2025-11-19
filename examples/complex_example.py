@@ -156,7 +156,7 @@ def demo_complex_analysis():
         flow = CausalFlow(api_key=api_key)
 
         # Run analysis
-        print("\n  Analyzing causal graph...")
+        print("\n  Analyzing causal graph")
         results = flow.analyze_trace(trace, skip_repair=False)
 
         # Generate report

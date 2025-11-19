@@ -105,10 +105,10 @@ def demo_causal_flow_analysis():
 
     trace = create_sample_failed_trace()
 
-    print("\nInitializing CausalFlow...")
+    print("\nInitializing CausalFlow")
     flow = CausalFlow(api_key=api_key)
 
-    print("\nRunning analysis...")
+    print("\nRunning analysis")
 
     try:
         results = flow.analyze_trace(
@@ -159,7 +159,7 @@ def demo_with_real_agent():
 
         # Analyze if it failed
         if not trace.success:
-            print("\nAgent failed! Running CausalFlow analysis...")
+            print("\nAgent failed! Running CausalFlow analysis")
 
             flow = CausalFlow(api_key=api_key)
             results = flow.analyze_trace(trace)

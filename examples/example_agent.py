@@ -68,7 +68,7 @@ Think through the problem and identify what calculations are needed.
         )
 
         step_1 = self.trace_logger.log_reasoning(reasoning, dependencies=[])
-        print(f"Step {step_1} [Reasoning]: {reasoning[:100]}...")
+        print(f"Step {step_1} [Reasoning]: {reasoning}")
 
         # Step 2: Identify calculation needed
         calc_prompt = f"""Based on this reasoning:
