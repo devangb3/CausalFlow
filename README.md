@@ -80,12 +80,72 @@ CausalFlow automatically saves all traces and analysis results to MongoDB for ce
 
 ### Collections
 
-- **`passing_traces`**: Stores successful execution traces
-- **`failing_traces`**: Stores failed traces with complete CausalFlow analysis including:
-  - Full trace data (never stripped or sliced)
-  - All reports (attribution, repair, critique, full report)
-  - All metrics (minimality scores, precision, recall, F1, consensus scores)
-  - Complete analysis results
+- **`runs`**: Stores experiment runs with nested passing and failing traces
+
+### Data Structure
+
+Each run document contains:
+```json
+{
+  "run_id": "run_GSM8K_2025-11-20T10:30:00",
+  "experiment_name": "GSM8K",
+  "timestamp": "2025-11-20T10:30:00",
+  "num_problems": 10,
+  "stats": {
+    "total": 10,
+    "passing": 7,
+    "failing": 3
+  },
+  "passing_traces": [
+    {
+      "problem_id": 0,
+      "timestamp": "2025-11-20T10:31:00",
+      "success": true,
+      "problem_statement": "...",
+      "gold_answer": "42",
+      "final_answer": "42",
+      "trace": {
+        "steps": [...],  // Complete trace as object - never stripped
+        "success": true,
+        "final_answer": "42",
+        "num_steps": 5
+      }
+    }
+  ],
+  "failing_traces": [
+    {
+      "problem_id": 2,
+      "timestamp": "2025-11-20T10:32:00",
+      "success": false,
+      "problem_statement": "...",
+      "gold_answer": "42",
+      "final_answer": "40",
+      "trace": {
+        "steps": [...],  // Complete trace as object
+        "success": false
+      },
+      "analysis": {
+        "causal_graph": {...},
+        "causal_attribution": {...},
+        "counterfactual_repairs": {...},
+        "multi_agent_critique": {...}
+      },
+      "metrics": {
+        "minimality": {...},
+        "attribution": {...},
+        "repairs": {...},
+        "multi_agent": {...}
+      },
+      "reports": {
+        "full_report": "...",
+        "attribution_report": "...",
+        "repair_report": "...",
+        "critique_report": "..."
+      }
+    }
+  ]
+}
+```
 
 ### Usage
 
@@ -96,61 +156,57 @@ from causal_flow import CausalFlow
 # Initialize MongoDB storage
 mongo = MongoDBStorage()  # Uses MONGODB_URI from .env
 
+# Create a new run
+run_id = mongo.create_run(
+    experiment_name="GSM8K",
+    num_problems=10,
+    metadata={"description": "My experiment"}
+)
+
 # Pass to CausalFlow
 flow = CausalFlow(mongo_storage=mongo)
 
-# Traces are automatically saved during analysis
-results = flow.analyze_trace(trace, problem_id=1)
+# Add passing traces
+mongo.add_passing_trace(
+    run_id=run_id,
+    trace_data=trace.to_json(),
+    problem_id=0,
+    problem_statement="What is 2+2?",
+    gold_answer="4",
+    final_answer="4"
+)
 
-# Get statistics
-stats = mongo.get_statistics()
-print(f"Total traces: {stats['total_traces']}")
-print(f"Passing: {stats['total_passing_traces']}")
-print(f"Failing: {stats['total_failing_traces']}")
-```
+# Failing traces are automatically saved during CausalFlow analysis
 
-### Data Structure
+# Get run statistics
+run_stats = mongo.get_run_statistics(run_id)
+print(f"Total traces: {run_stats['total_traces']}")
+print(f"Passing: {run_stats['passing_traces']}")
+print(f"Failing: {run_stats['failing_traces']}")
+print(f"Accuracy: {run_stats['accuracy']}")
 
-Each failing trace document contains:
-```json
-{
-  "trace_id": "trace_1_2025-11-20T10:30:00",
-  "problem_id": 1,
-  "timestamp": "2025-11-20T10:30:00",
-  "success": false,
-  "problem_statement": "...",
-  "gold_answer": "42",
-  "final_answer": "40",
-  "trace": { /* Complete trace with all steps */ },
-  "analysis": {
-    "causal_graph": { /* Graph statistics */ },
-    "causal_attribution": { /* CRS scores, causal steps */ },
-    "counterfactual_repairs": { /* Repair proposals */ },
-    "multi_agent_critique": { /* Consensus results */ }
-  },
-  "metrics": {
-    "minimality": { /* average, min, max, by_step */ },
-    "attribution": { /* precision, recall, F1, TP, FP, FN */ },
-    "repairs": { /* success_rate, repairs_by_step */ },
-    "multi_agent": { /* consensus_score, steps_with_agreement */ }
-  },
-  "reports": {
-    "full_report": "...",
-    "attribution_report": "...",
-    "repair_report": "...",
-    "critique_report": "..."
-  }
-}
+# Get overall statistics across all runs
+overall_stats = mongo.get_statistics()
+print(f"Total runs: {overall_stats['total_runs']}")
+print(f"Total traces: {overall_stats['total_traces']}")
 ```
 
 ### Querying Examples
 
 ```python
-# Get a specific trace
-trace = mongo.get_trace("trace_1_2025-11-20T10:30:00")
+# Get a specific run
+run = mongo.get_run(run_id)
 
-# Check if trace exists
-exists = mongo.trace_exists("trace_1_2025-11-20T10:30:00")
+# Get all passing traces from a run
+passing = run['passing_traces']
+
+# Get all failing traces from a run
+failing = run['failing_traces']
+
+# Get statistics for all runs
+all_runs_stats = mongo.get_all_runs_statistics()
+for run_stat in all_runs_stats:
+    print(f"{run_stat['run_id']}: {run_stat['accuracy']:.2%}")
 
 # Close connection when done
 mongo.close()

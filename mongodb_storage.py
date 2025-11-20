@@ -1,32 +1,30 @@
 """
 MongoDB Storage Module for CausalFlow Traces and Failures
 
-This module provides MongoDB integration for storing:
-- Passing traces
-- Failing traces with complete analysis (reports, metrics, attributions, repairs)
+This module provides MongoDB integration for storing experiment runs with traces.
 
 Collections:
-- passing_traces: Successful execution traces
-- failing_traces: Failed traces with full CausalFlow analysis
+- runs: Stores experiment runs with nested passing and failing traces
 """
 
 import os
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from pymongo import MongoClient, ASCENDING
-from pymongo.errors import DuplicateKeyError, ConnectionFailure
+from pymongo import MongoClient, ASCENDING, DESCENDING
+from pymongo.errors import ConnectionFailure
 from dotenv import load_dotenv
 import json
 
 
 class MongoDBStorage:
     """
-    MongoDB storage manager for CausalFlow traces and analysis results.
+    MongoDB storage manager for CausalFlow experiment runs and traces.
 
     Ensures:
     - No data is stripped or sliced
-    - No duplicate storage
     - Complete storage of all reports and metrics
+    - Traces stored as objects, not strings
+    - Integer keys converted to strings for MongoDB compatibility
     """
 
     def __init__(self, mongo_uri: Optional[str] = None):
@@ -60,87 +58,149 @@ class MongoDBStorage:
         self.db = self.client.get_default_database()
 
         # Setup collections
-        self.passing_traces = self.db['passing_traces']
-        self.failing_traces = self.db['failing_traces']
+        self.runs = self.db['runs']
 
-        # Create indexes for efficient querying and duplicate prevention
+        # Create indexes for efficient querying
         self._setup_indexes()
+
+        # Current run document
+        self.current_run_id = None
 
     def _setup_indexes(self):
         """Create indexes for collections."""
-        # Index on trace_id (unique) and timestamp for both collections
-        self.passing_traces.create_index([("trace_id", ASCENDING)], unique=True)
-        self.passing_traces.create_index([("timestamp", ASCENDING)])
-        self.passing_traces.create_index([("problem_id", ASCENDING)])
-
-        self.failing_traces.create_index([("trace_id", ASCENDING)], unique=True)
-        self.failing_traces.create_index([("timestamp", ASCENDING)])
-        self.failing_traces.create_index([("problem_id", ASCENDING)])
+        # Index on run_id (unique) and timestamp
+        self.runs.create_index([("run_id", ASCENDING)], unique=True)
+        self.runs.create_index([("timestamp", DESCENDING)])
+        self.runs.create_index([("experiment_name", ASCENDING)])
 
         print("MongoDB indexes created successfully")
 
-    def _generate_trace_id(self, problem_id: Any, timestamp: str) -> str:
+    def _convert_keys_to_strings(self, obj: Any) -> Any:
         """
-        Generate a unique trace ID.
+        Recursively convert all dictionary keys to strings for MongoDB compatibility.
+        MongoDB requires all keys to be strings, not integers.
 
         Args:
-            problem_id: Problem identifier
-            timestamp: ISO format timestamp
+            obj: Object to convert
 
         Returns:
-            Unique trace ID
+            Object with all keys converted to strings
         """
-        return f"trace_{problem_id}_{timestamp}"
+        if isinstance(obj, dict):
+            return {str(k): self._convert_keys_to_strings(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._convert_keys_to_strings(item) for item in obj]
+        else:
+            return obj
 
-    def save_passing_trace(
+    def _parse_trace_json(self, trace_data: Any) -> Dict[str, Any]:
+        """
+        Parse trace data if it's a JSON string, otherwise return as is.
+
+        Args:
+            trace_data: Trace data (could be string or dict)
+
+        Returns:
+            Parsed trace as dictionary
+        """
+        if isinstance(trace_data, str):
+            return json.loads(trace_data)
+        return trace_data
+
+    def create_run(
         self,
-        trace_data: Dict[str, Any],
+        experiment_name: str,
+        num_problems: int,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Create a new experiment run document.
+
+        Args:
+            experiment_name: Name of the experiment (e.g., "GSM8K")
+            num_problems: Total number of problems in this run
+            metadata: Optional metadata for the run
+
+        Returns:
+            Run ID
+        """
+        timestamp = datetime.utcnow().isoformat()
+        run_id = f"run_{experiment_name}_{timestamp}"
+
+        document = {
+            "run_id": run_id,
+            "experiment_name": experiment_name,
+            "timestamp": timestamp,
+            "num_problems": num_problems,
+            "passing_traces": [],
+            "failing_traces": [],
+            "metadata": metadata or {},
+            "stats": {
+                "total": 0,
+                "passing": 0,
+                "failing": 0
+            }
+        }
+
+        self.runs.insert_one(document)
+        self.current_run_id = run_id
+        print(f"Created new run: {run_id}")
+        return run_id
+
+    def add_passing_trace(
+        self,
+        run_id: str,
+        trace_data: Any,
         problem_id: Any,
         problem_statement: str,
         gold_answer: Any,
         final_answer: Any,
         metadata: Optional[Dict[str, Any]] = None
-    ) -> bool:
+    ):
         """
-        Save a passing trace to MongoDB.
+        Add a passing trace to an existing run.
 
         Args:
+            run_id: Run identifier
             trace_data: Complete trace data (from TraceLogger.to_json())
             problem_id: Unique problem identifier
             problem_statement: The problem text
             gold_answer: Expected answer
             final_answer: Agent's answer
             metadata: Optional additional metadata
-
-        Returns:
-            True if saved successfully, False if already exists
         """
-        timestamp = datetime.utcnow().isoformat()
-        trace_id = self._generate_trace_id(problem_id, timestamp)
+        # Parse trace if it's a JSON string
+        trace_obj = self._parse_trace_json(trace_data)
 
-        document = {
-            "trace_id": trace_id,
+        # Convert integer keys to strings
+        trace_obj = self._convert_keys_to_strings(trace_obj)
+
+        trace_document = {
             "problem_id": problem_id,
-            "timestamp": timestamp,
+            "timestamp": datetime.utcnow().isoformat(),
             "success": True,
             "problem_statement": problem_statement,
             "gold_answer": gold_answer,
             "final_answer": final_answer,
-            "trace": trace_data,  # Complete trace - never stripped
+            "trace": trace_obj,  # Complete trace as object - never stripped
             "metadata": metadata or {}
         }
 
-        try:
-            self.passing_traces.insert_one(document)
-            print(f"Saved passing trace: {trace_id}")
-            return True
-        except DuplicateKeyError:
-            print(f"Trace {trace_id} already exists in passing_traces")
-            return False
+        # Add to run's passing_traces array and update stats
+        self.runs.update_one(
+            {"run_id": run_id},
+            {
+                "$push": {"passing_traces": trace_document},
+                "$inc": {"stats.total": 1, "stats.passing": 1}
+            }
+        )
 
-    def save_failing_trace(
+        print(f"Added passing trace for problem {problem_id} to run {run_id}")
+
+    def add_failing_trace(
         self,
-        trace_data: Dict[str, Any],
+        run_id: str,
+        trace_data: Any,
         problem_id: Any,
         problem_statement: str,
         gold_answer: Any,
@@ -149,50 +209,40 @@ class MongoDBStorage:
         metrics: Dict[str, Any],
         reports: Dict[str, str],
         metadata: Optional[Dict[str, Any]] = None
-    ) -> bool:
+    ):
         """
-        Save a failing trace with complete CausalFlow analysis to MongoDB.
+        Add a failing trace with complete CausalFlow analysis to an existing run.
 
         Args:
+            run_id: Run identifier
             trace_data: Complete trace data (from TraceLogger.to_json())
             problem_id: Unique problem identifier
             problem_statement: The problem text
             gold_answer: Expected answer
             final_answer: Agent's answer (incorrect)
-            analysis_results: Complete analysis results including:
-                - causal_graph
-                - causal_attribution
-                - counterfactual_repairs
-                - multi_agent_critique
-            metrics: All metrics including:
-                - minimality_scores (average, min, max, by_step)
-                - causal_attribution_metrics (precision, recall, F1)
-                - repair_metrics (success_rate, attempts)
-                - multi_agent_agreement_metrics
-            reports: All generated reports:
-                - full_report: Complete text report
-                - attribution_report: Causal attribution details
-                - repair_report: Counterfactual repair details
-                - critique_report: Multi-agent critique details
+            analysis_results: Complete analysis results
+            metrics: All metrics
+            reports: All generated reports
             metadata: Optional additional metadata
-
-        Returns:
-            True if saved successfully, False if already exists
         """
-        timestamp = datetime.utcnow().isoformat()
-        trace_id = self._generate_trace_id(problem_id, timestamp)
+        # Parse trace if it's a JSON string
+        trace_obj = self._parse_trace_json(trace_data)
 
-        document = {
-            "trace_id": trace_id,
+        # Convert all integer keys to strings for MongoDB compatibility
+        trace_obj = self._convert_keys_to_strings(trace_obj)
+        analysis_results = self._convert_keys_to_strings(analysis_results)
+        metrics = self._convert_keys_to_strings(metrics)
+
+        trace_document = {
             "problem_id": problem_id,
-            "timestamp": timestamp,
+            "timestamp": datetime.utcnow().isoformat(),
             "success": False,
             "problem_statement": problem_statement,
             "gold_answer": gold_answer,
             "final_answer": final_answer,
 
-            # Complete trace - never stripped or sliced
-            "trace": trace_data,
+            # Complete trace as object - never stripped or sliced
+            "trace": trace_obj,
 
             # Complete analysis results - all components
             "analysis": {
@@ -209,7 +259,7 @@ class MongoDBStorage:
                     "average": metrics.get("average_minimality"),
                     "min": metrics.get("min_minimality"),
                     "max": metrics.get("max_minimality"),
-                    "by_step": metrics.get("minimality_by_step", [])
+                    "by_step": metrics.get("minimality_by_step", {})
                 },
 
                 # Causal attribution metrics
@@ -231,7 +281,7 @@ class MongoDBStorage:
                     "successful_repairs": metrics.get("successful_repairs"),
                     "failed_repairs": metrics.get("failed_repairs"),
                     "success_rate": metrics.get("success_rate"),
-                    "repairs_by_step": metrics.get("repairs_by_step", [])
+                    "repairs_by_step": metrics.get("repairs_by_step", {})
                 },
 
                 # Multi-agent agreement metrics
@@ -256,74 +306,110 @@ class MongoDBStorage:
             "metadata": metadata or {}
         }
 
-        try:
-            self.failing_traces.insert_one(document)
-            print(f"Saved failing trace with complete analysis: {trace_id}")
-            return True
-        except DuplicateKeyError:
-            print(f"Trace {trace_id} already exists in failing_traces")
-            return False
+        # Add to run's failing_traces array and update stats
+        self.runs.update_one(
+            {"run_id": run_id},
+            {
+                "$push": {"failing_traces": trace_document},
+                "$inc": {"stats.total": 1, "stats.failing": 1}
+            }
+        )
 
-    def trace_exists(self, trace_id: str, collection: str = "both") -> bool:
+        print(f"Added failing trace with complete analysis for problem {problem_id} to run {run_id}")
+
+    def get_run(self, run_id: str) -> Optional[Dict[str, Any]]:
         """
-        Check if a trace exists in the database.
+        Retrieve a complete run document.
 
         Args:
-            trace_id: Trace identifier
-            collection: "passing", "failing", or "both"
+            run_id: Run identifier
 
         Returns:
-            True if trace exists
+            Run document or None if not found
         """
-        if collection == "both":
-            return (
-                self.passing_traces.find_one({"trace_id": trace_id}) is not None or
-                self.failing_traces.find_one({"trace_id": trace_id}) is not None
-            )
-        elif collection == "passing":
-            return self.passing_traces.find_one({"trace_id": trace_id}) is not None
-        elif collection == "failing":
-            return self.failing_traces.find_one({"trace_id": trace_id}) is not None
-        else:
-            raise ValueError(f"Invalid collection: {collection}")
+        return self.runs.find_one({"run_id": run_id})
 
-    def get_trace(self, trace_id: str, collection: str = "both") -> Optional[Dict[str, Any]]:
+    def get_run_statistics(self, run_id: str) -> Dict[str, Any]:
         """
-        Retrieve a trace from the database.
+        Get statistics for a specific run.
 
         Args:
-            trace_id: Trace identifier
-            collection: "passing", "failing", or "both"
+            run_id: Run identifier
 
         Returns:
-            Trace document or None if not found
+            Dictionary with statistics
         """
-        if collection == "both":
-            trace = self.passing_traces.find_one({"trace_id": trace_id})
-            if trace:
-                return trace
-            return self.failing_traces.find_one({"trace_id": trace_id})
-        elif collection == "passing":
-            return self.passing_traces.find_one({"trace_id": trace_id})
-        elif collection == "failing":
-            return self.failing_traces.find_one({"trace_id": trace_id})
-        else:
-            raise ValueError(f"Invalid collection: {collection}")
+        run = self.get_run(run_id)
+        if not run:
+            return {}
+
+        return {
+            "run_id": run_id,
+            "experiment_name": run.get("experiment_name"),
+            "timestamp": run.get("timestamp"),
+            "total_traces": run["stats"]["total"],
+            "passing_traces": run["stats"]["passing"],
+            "failing_traces": run["stats"]["failing"],
+            "accuracy": run["stats"]["passing"] / run["stats"]["total"] if run["stats"]["total"] > 0 else 0
+        }
+
+    def get_all_runs_statistics(self) -> List[Dict[str, Any]]:
+        """
+        Get statistics for all runs.
+
+        Returns:
+            List of statistics for each run
+        """
+        runs = self.runs.find({}, {"run_id": 1, "experiment_name": 1, "timestamp": 1, "stats": 1})
+        stats = []
+        for run in runs:
+            total = run["stats"]["total"]
+            stats.append({
+                "run_id": run["run_id"],
+                "experiment_name": run.get("experiment_name"),
+                "timestamp": run.get("timestamp"),
+                "total_traces": total,
+                "passing_traces": run["stats"]["passing"],
+                "failing_traces": run["stats"]["failing"],
+                "accuracy": run["stats"]["passing"] / total if total > 0 else 0
+            })
+        return stats
 
     def get_statistics(self) -> Dict[str, Any]:
         """
-        Get statistics about stored traces.
+        Get overall statistics across all runs.
 
         Returns:
-            Dictionary with count statistics
+            Dictionary with aggregate statistics
         """
+        pipeline = [
+            {
+                "$group": {
+                    "_id": None,
+                    "total_runs": {"$sum": 1},
+                    "total_traces": {"$sum": "$stats.total"},
+                    "total_passing": {"$sum": "$stats.passing"},
+                    "total_failing": {"$sum": "$stats.failing"}
+                }
+            }
+        ]
+
+        result = list(self.runs.aggregate(pipeline))
+
+        if not result:
+            return {
+                "total_runs": 0,
+                "total_traces": 0,
+                "total_passing_traces": 0,
+                "total_failing_traces": 0
+            }
+
+        stats = result[0]
         return {
-            "total_passing_traces": self.passing_traces.count_documents({}),
-            "total_failing_traces": self.failing_traces.count_documents({}),
-            "total_traces": (
-                self.passing_traces.count_documents({}) +
-                self.failing_traces.count_documents({})
-            )
+            "total_runs": stats["total_runs"],
+            "total_traces": stats["total_traces"],
+            "total_passing_traces": stats["total_passing"],
+            "total_failing_traces": stats["total_failing"]
         }
 
     def close(self):

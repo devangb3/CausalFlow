@@ -420,7 +420,8 @@ class CausalFlow:
         trace: TraceLogger,
         results: Dict[str, Any],
         consensus_steps: List[Step],
-        problem_id: Optional[Any] = None
+        problem_id: Optional[Any] = None,
+        run_id: Optional[str] = None
     ):
         """
         Save failing trace with complete analysis to MongoDB.
@@ -430,8 +431,15 @@ class CausalFlow:
             results: Compiled analysis results
             consensus_steps: Steps confirmed by multi-agent consensus
             problem_id: Problem identifier
+            run_id: Run identifier (if None, uses current_run_id from storage)
         """
         if not self.mongo_storage:
+            return
+
+        # Use provided run_id or get current run_id from storage
+        run_id = run_id or self.mongo_storage.current_run_id
+        if not run_id:
+            print("Warning: No run_id provided and no current run. Skipping MongoDB save.")
             return
 
         # Get complete trace data
@@ -449,7 +457,8 @@ class CausalFlow:
         }
 
         # Save to MongoDB
-        self.mongo_storage.save_failing_trace(
+        self.mongo_storage.add_failing_trace(
+            run_id=run_id,
             trace_data=trace_data,
             problem_id=problem_id or "unknown",
             problem_statement=trace.problem_statement,

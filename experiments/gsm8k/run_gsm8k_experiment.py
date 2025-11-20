@@ -68,6 +68,15 @@ class GSM8KExperiment:
         data = self.data_loader.load_data(num_rows)
         print(f"\nRunning experiment on {len(data)} problems")
 
+        # Create MongoDB run if storage is available
+        run_id = None
+        if self.mongo_storage:
+            run_id = self.mongo_storage.create_run(
+                experiment_name="GSM8K",
+                num_problems=len(data),
+                metadata={"output_dir": output_dir}
+            )
+
         stats = {
             'total': len(data),
             'correct': 0,
@@ -123,9 +132,10 @@ class GSM8KExperiment:
             problem_result['trace_file'] = trace_file
 
             # Save passing traces to MongoDB
-            if result['success'] and self.mongo_storage:
+            if result['success'] and self.mongo_storage and run_id:
                 try:
-                    self.mongo_storage.save_passing_trace(
+                    self.mongo_storage.add_passing_trace(
+                        run_id=run_id,
                         trace_data=result['trace'].to_json(),
                         problem_id=i,
                         problem_statement=question,
@@ -192,12 +202,22 @@ class GSM8KExperiment:
         print(f"Summary: {summary_file}")
 
         # Print MongoDB statistics
-        if self.mongo_storage:
-            mongo_stats = self.mongo_storage.get_statistics()
-            print(f"\nMongoDB Statistics:")
-            print(f"  Total passing traces: {mongo_stats['total_passing_traces']}")
-            print(f"  Total failing traces: {mongo_stats['total_failing_traces']}")
-            print(f"  Total traces in DB: {mongo_stats['total_traces']}")
+        if self.mongo_storage and run_id:
+            run_stats = self.mongo_storage.get_run_statistics(run_id)
+            print(f"\nMongoDB Statistics for this run:")
+            print(f"  Run ID: {run_stats['run_id']}")
+            print(f"  Total traces: {run_stats['total_traces']}")
+            print(f"  Passing traces: {run_stats['passing_traces']}")
+            print(f"  Failing traces: {run_stats['failing_traces']}")
+            print(f"  Accuracy: {run_stats['accuracy']:.2%}")
+
+            # Print overall statistics
+            overall_stats = self.mongo_storage.get_statistics()
+            print(f"\nOverall MongoDB Statistics (all runs):")
+            print(f"  Total runs: {overall_stats['total_runs']}")
+            print(f"  Total traces: {overall_stats['total_traces']}")
+            print(f"  Total passing: {overall_stats['total_passing_traces']}")
+            print(f"  Total failing: {overall_stats['total_failing_traces']}")
 
         return stats
 
