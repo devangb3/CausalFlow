@@ -64,6 +64,7 @@ class GSM8KExperiment:
             'total': len(data),
             'correct': 0,
             'incorrect': 0,
+            'skipped': 0,
             'analyzed': 0,
             'results': []
         }
@@ -79,6 +80,24 @@ class GSM8KExperiment:
 
             result = self.agent.solve(question, gold_answer)
 
+            # Check if parsing failed
+            if result.get('error'):
+                print(f"ERROR: Failed to parse response - {result['error']}")
+                print(f"Skipping this problem...")
+                stats['skipped'] += 1
+
+                problem_result = {
+                    'problem_id': i,
+                    'question': question,
+                    'gold_answer': gold_answer,
+                    'agent_answer': None,
+                    'success': False,
+                    'skipped': True,
+                    'error': result['error']
+                }
+                stats['results'].append(problem_result)
+                continue
+
             print(f"Agent Answer: {result['answer']}")
             print(f"Success: {result['success']}")
 
@@ -88,6 +107,7 @@ class GSM8KExperiment:
                 'gold_answer': gold_answer,
                 'agent_answer': result['answer'],
                 'success': result['success'],
+                'skipped': False,
                 'num_steps': len(result['trace'].steps)
             }
 
@@ -136,8 +156,11 @@ class GSM8KExperiment:
 
             stats['results'].append(problem_result)
 
-        stats['accuracy'] = stats['correct'] / stats['total'] if stats['total'] > 0 else 0
-        stats['error_rate'] = stats['incorrect'] / stats['total'] if stats['total'] > 0 else 0
+        # Calculate stats for non-skipped problems
+        attempted = stats['total'] - stats['skipped']
+        stats['accuracy'] = stats['correct'] / attempted if attempted > 0 else 0
+        stats['error_rate'] = stats['incorrect'] / attempted if attempted > 0 else 0
+        stats['skip_rate'] = stats['skipped'] / stats['total'] if stats['total'] > 0 else 0
         stats['analysis_coverage'] = stats['analyzed'] / stats['incorrect'] if stats['incorrect'] > 0 else 0
 
         summary_file = os.path.join(output_dir, "experiment_summary.json")
@@ -148,8 +171,11 @@ class GSM8KExperiment:
         print("EXPERIMENT SUMMARY")
         print(f"{'='*70}")
         print(f"Total problems: {stats['total']}")
-        print(f"Correct: {stats['correct']} ({stats['accuracy']*100:.1f}%)")
-        print(f"Incorrect: {stats['incorrect']} ({stats['error_rate']*100:.1f}%)")
+        print(f"Attempted: {attempted}")
+        if stats['skipped'] > 0:
+            print(f"Skipped (parsing errors): {stats['skipped']} ({stats['skip_rate']*100:.1f}%)")
+        print(f"Correct: {stats['correct']} ({stats['accuracy']*100:.1f}% of attempted)")
+        print(f"Incorrect: {stats['incorrect']} ({stats['error_rate']*100:.1f}% of attempted)")
         print(f"Failures analyzed: {stats['analyzed']}/{stats['incorrect']}")
         print(f"\nResults saved to: {output_dir}/")
         print(f"Summary: {summary_file}")

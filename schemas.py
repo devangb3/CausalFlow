@@ -110,6 +110,41 @@ class ToolArgsOutput(BaseModel):
     )
 
 
+class GSM8KCalculationStep(BaseModel):
+    """Schema for a single calculation step in GSM8K problem solving."""
+
+    description: str = Field(
+        ...,
+        description="Clear description of what is being calculated in this step"
+    )
+    operation: str = Field(
+        ...,
+        pattern="^(addition|subtraction|multiplication|division|other)$",
+        description="Type of mathematical operation: addition, subtraction, multiplication, division, or other"
+    )
+    expression: str = Field(
+        ...,
+        description="The mathematical expression to evaluate (e.g., '16 - 3 - 4' or '9 * 2')"
+    )
+
+
+class GSM8KSolution(BaseModel):
+    """Schema for complete GSM8K problem solution with structured steps."""
+
+    reasoning: str = Field(
+        ...,
+        description="Brief overview of the approach to solve the problem"
+    )
+    steps: List[GSM8KCalculationStep] = Field(
+        ...,
+        description="List of calculation steps needed to solve the problem"
+    )
+    final_answer: str = Field(
+        ...,
+        description="The final numerical answer to the problem"
+    )
+
+
 class LLMSchemas:
     """Collection of schema utilities for structured LLM outputs."""
 
@@ -120,6 +155,7 @@ class LLMSchemas:
         "repair": RepairOutput,
         "critique": CritiqueOutput,
         "tool_args": ToolArgsOutput,
+        "gsm8k_solution": GSM8KSolution,
     }
 
     @staticmethod
