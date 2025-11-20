@@ -246,14 +246,9 @@ Descendants of this step (affected by the intervention):
         ]
 
     def generate_report(self) -> str:
-
-        lines = ["=" * 60]
+        lines = []
         lines.append("CAUSAL ATTRIBUTION REPORT")
-        lines.append("=" * 60)
         lines.append(f"Total Steps Analyzed: {len(self.crs_scores)}")
-        lines.append(f"Original Outcome: {'SUCCESS' if self.trace.success else 'FAILURE'}")
-        lines.append(f"Final Answer: {self.trace.final_answer}")
-        lines.append(f"Gold Answer: {self.trace.gold_answer}")
         lines.append("")
 
         causal_steps = self.get_causal_steps()
@@ -261,7 +256,7 @@ Descendants of this step (affected by the intervention):
         lines.append("")
 
         top_steps = self.get_top_causal_steps()
-        lines.append("Top Causal Steps (by CRS):")
+        lines.append("Causal Steps (by Initial CRS):")
         lines.append("-" * 60)
 
         for step_id, crs in top_steps:
@@ -278,7 +273,4 @@ Descendants of this step (affected by the intervention):
                         step_data["step_type"] = StepType(step_data["step_type"])
                         intervened = Step(**step_data)
                         lines.append(f"  Intervention: {summarize_step(intervened)}")
-
-        lines.append("\n" + "=" * 60)
-
         return "\n".join(lines)

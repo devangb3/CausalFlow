@@ -17,9 +17,8 @@ class GSM8KAgent:
         use_structured_outputs: bool = True
     ):
 
-        # Use GPT-4o for structured outputs, otherwise use default model
         if use_structured_outputs and llm_client is None:
-            self.llm = LLMClient(model="openai/gpt-4o")
+            self.llm = LLMClient(model="openai/gpt-4.1-nano")
         else:
             self.llm = llm_client or LLMClient()
 
@@ -32,16 +31,6 @@ class GSM8KAgent:
         question: str,
         gold_answer: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Solve a GSM8K problem and return the answer with trace.
-
-        Args:
-            question: The math problem to solve
-            gold_answer: The correct answer (for evaluation)
-
-        Returns:
-            Dictionary with 'answer', 'trace', 'success', and 'error' keys
-        """
         if self.use_structured_outputs:
             return self._solve_structured(question, gold_answer)
         else:
@@ -52,9 +41,7 @@ class GSM8KAgent:
         question: str,
         gold_answer: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Solve using structured outputs API.
-        """
+
         self.trace = TraceLogger(problem_statement=question)
 
         step_0 = self.trace.log_reasoning(
@@ -62,7 +49,6 @@ class GSM8KAgent:
             dependencies=[]
         )
 
-        # Improved prompt for structured outputs
         breakdown_prompt = f"""Solve this math problem step by step.
 
 Problem: {question}
@@ -78,7 +64,6 @@ Provide:
 Be precise with expressions - they should be evaluatable (e.g., "16 - 3 - 4" not "16 eggs - 3 - 4")."""
 
         try:
-            # Use structured output
             solution = self.llm.generate_structured(
                 breakdown_prompt,
                 schema_name="gsm8k_solution",
@@ -118,21 +103,13 @@ Be precise with expressions - they should be evaluatable (e.g., "16 - 3 - 4" not
                 )
 
                 current_deps = [step_tool_response]
-                last_result = result
-
-            # Use the final answer from structured output
             final_answer = solution.final_answer
 
-            # If we have a last calculated result, prefer that
-            if last_result is not None:
-                final_answer = str(last_result)
-
-            step_final = self.trace.log_final_answer(
+            self.trace.log_final_answer(
                 final_answer,
                 dependencies=current_deps
             )
 
-            # Evaluate success
             if gold_answer:
                 gold_num = self.reexecutor.extract_number(gold_answer)
                 success = self.reexecutor.compare_answers(final_answer, gold_answer)
@@ -152,7 +129,6 @@ Be precise with expressions - they should be evaluatable (e.g., "16 - 3 - 4" not
             }
 
         except Exception as e:
-            # Return error information instead of crashing
             return {
                 'answer': None,
                 'trace': self.trace,
@@ -165,9 +141,7 @@ Be precise with expressions - they should be evaluatable (e.g., "16 - 3 - 4" not
         question: str,
         gold_answer: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Legacy solve method using manual parsing (fallback).
-        """
+
         self.trace = TraceLogger(problem_statement=question)
 
         step_0 = self.trace.log_reasoning(

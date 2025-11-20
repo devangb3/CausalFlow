@@ -111,8 +111,6 @@ class ToolArgsOutput(BaseModel):
 
 
 class GSM8KCalculationStep(BaseModel):
-    """Schema for a single calculation step in GSM8K problem solving."""
-
     description: str = Field(
         ...,
         description="Clear description of what is being calculated in this step"

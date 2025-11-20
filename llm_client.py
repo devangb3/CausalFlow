@@ -14,8 +14,7 @@ class LLMClient:
         self,
         api_key: Optional[str] = None,
         model: str = "google/gemini-2.5-flash-lite",
-        temperature: float = 0.7,
-        max_tokens: int = 2000
+        temperature: float = 0.7
     ):
 
         self.api_key = api_key or os.getenv("OPENROUTER_SECRET_KEY")
@@ -24,7 +23,6 @@ class LLMClient:
 
         self.model = model
         self.temperature = temperature
-        self.max_tokens = max_tokens
 
         # Initialize OpenAI client pointed at OpenRouter
         self.client = OpenAI(
@@ -36,8 +34,7 @@ class LLMClient:
         self,
         prompt: str,
         system_message: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None
+        temperature: Optional[float] = None
     ) -> str:
         messages = []
 
@@ -55,8 +52,7 @@ class LLMClient:
         response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
-            temperature=temperature or self.temperature,
-            max_tokens=max_tokens or self.max_tokens
+            temperature=temperature or self.temperature
         )
 
         return response.choices[0].message.content
@@ -66,8 +62,7 @@ class LLMClient:
         prompt: str,
         schema_name: str,
         system_message: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None
+        temperature: Optional[float] = None
     ) -> BaseModel:
 
         messages = []
@@ -90,13 +85,11 @@ class LLMClient:
             model=self.model,
             messages=messages,
             temperature=temperature or self.temperature,
-            max_tokens=max_tokens or self.max_tokens,
             response_format=response_format
         )
 
         content = response.choices[0].message.content
 
-        # Parse and validate the JSON response using Pydantic
         try:
             data = json.loads(content)
             return LLMSchemas.parse_response(schema_name, data)
