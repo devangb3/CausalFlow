@@ -13,6 +13,7 @@ from gsm8k_agent import GSM8KAgent
 from causal_flow import CausalFlow
 from llm_client import LLMClient
 from math_reexecutor import MathReexecutor
+from mongodb_storage import MongoDBStorage
 from datasets import load_dataset
 
 class GSM8KDataLoader:
@@ -39,10 +40,21 @@ class GSM8KDataLoader:
         return str(num) if num is not None else answer_text
 
 class GSM8KExperiment:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, use_mongodb: bool = True):
         self.api_key = api_key
         self.agent = GSM8KAgent(llm_client=LLMClient(api_key=self.api_key))
-        self.causal_flow = CausalFlow(api_key=self.api_key)
+
+        # Initialize MongoDB storage if requested
+        self.mongo_storage = None
+        if use_mongodb:
+            try:
+                self.mongo_storage = MongoDBStorage()
+                print("MongoDB storage initialized")
+            except Exception as e:
+                print(f"WARNING: Could not initialize MongoDB storage: {e}")
+                print("Continuing without MongoDB storage...")
+
+        self.causal_flow = CausalFlow(api_key=self.api_key, mongo_storage=self.mongo_storage)
         self.data_loader = GSM8KDataLoader()
         self.results = []
 
@@ -110,13 +122,28 @@ class GSM8KExperiment:
             result['trace'].to_json(trace_file)
             problem_result['trace_file'] = trace_file
 
+            # Save passing traces to MongoDB
+            if result['success'] and self.mongo_storage:
+                try:
+                    self.mongo_storage.save_passing_trace(
+                        trace_data=result['trace'].to_json(),
+                        problem_id=i,
+                        problem_statement=question,
+                        gold_answer=gold_answer,
+                        final_answer=result['answer']
+                    )
+                except Exception as e:
+                    print(f"  Error saving passing trace to MongoDB: {e}")
+
+            # Analyze failing traces with CausalFlow
             if not result['success']:
                 try:
                     metrics_file = os.path.join(output_dir, f"metrics_{i}.json")
                     analysis = self.causal_flow.analyze_trace(
                         result['trace'],
                         skip_repair=False,
-                        metrics_output_file=metrics_file
+                        metrics_output_file=metrics_file,
+                        problem_id=i
                     )
                     report_file = os.path.join(output_dir, f"analysis_{i}.txt")
                     self.causal_flow.generate_full_report(report_file)
@@ -163,6 +190,14 @@ class GSM8KExperiment:
             json.dump(stats, f, indent=2)
 
         print(f"Summary: {summary_file}")
+
+        # Print MongoDB statistics
+        if self.mongo_storage:
+            mongo_stats = self.mongo_storage.get_statistics()
+            print(f"\nMongoDB Statistics:")
+            print(f"  Total passing traces: {mongo_stats['total_passing_traces']}")
+            print(f"  Total failing traces: {mongo_stats['total_failing_traces']}")
+            print(f"  Total traces in DB: {mongo_stats['total_traces']}")
 
         return stats
 

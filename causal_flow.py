@@ -6,6 +6,7 @@ from causal_attribution import CausalAttribution
 from counterfactual_repair import CounterfactualRepair
 from multi_agent_critique import MultiAgentCritique
 from llm_client import LLMClient, MultiAgentLLM
+from mongodb_storage import MongoDBStorage
 import json
 
 
@@ -14,7 +15,8 @@ class CausalFlow:
         self,
         api_key: Optional[str] = None,
         model: str = "google/gemini-2.5-flash-lite",
-        num_critique_agents: int = 3 #Number of agents for multi-agent critique
+        num_critique_agents: int = 3, #Number of agents for multi-agent critique
+        mongo_storage: Optional[MongoDBStorage] = None
     ):
 
         self.llm_client = LLMClient(api_key=api_key, model=model)
@@ -28,12 +30,14 @@ class CausalFlow:
         self.causal_attribution: Optional[CausalAttribution] = None
         self.counterfactual_repair: Optional[CounterfactualRepair] = None
         self.multi_agent_critique: Optional[MultiAgentCritique] = None
+        self.mongo_storage = mongo_storage
 
     def analyze_trace(
         self,
         trace: TraceLogger,
         skip_repair: bool = False,
-        metrics_output_file: str = "examples/causal_metrics_results.json"
+        metrics_output_file: str = "examples/causal_metrics_results.json",
+        problem_id: Optional[Any] = None
     ) -> Dict[str, Any]:
 
         self.trace = self._prepare_analysis_trace(trace)
@@ -87,6 +91,16 @@ class CausalFlow:
         print(f"\n[6/6] Generating metrics JSON")
         self.export_metrics(metrics_output_file, consensus_steps)
         print(f"Metrics saved to: {metrics_output_file}")
+
+        # Save to MongoDB if storage is configured
+        if self.mongo_storage:
+            print(f"\n[7/7] Saving failing trace to MongoDB")
+            self._save_to_mongodb(
+                trace=trace,
+                results=results,
+                consensus_steps=consensus_steps,
+                problem_id=problem_id
+            )
 
         print("Analysis complete!")
         return results
@@ -400,3 +414,48 @@ class CausalFlow:
             json.dump(metrics, f, indent=2)
 
         print(f"Metrics exported to: {filepath}")
+
+    def _save_to_mongodb(
+        self,
+        trace: TraceLogger,
+        results: Dict[str, Any],
+        consensus_steps: List[Step],
+        problem_id: Optional[Any] = None
+    ):
+        """
+        Save failing trace with complete analysis to MongoDB.
+
+        Args:
+            trace: Original trace (with final answer)
+            results: Compiled analysis results
+            consensus_steps: Steps confirmed by multi-agent consensus
+            problem_id: Problem identifier
+        """
+        if not self.mongo_storage:
+            return
+
+        # Get complete trace data
+        trace_data = trace.to_json()
+
+        # Generate all metrics
+        metrics = self.generate_metrics_json(consensus_steps)
+
+        # Generate all reports
+        reports = {
+            "full_report": self.generate_full_report(),
+            "attribution_report": self.causal_attribution.generate_report() if self.causal_attribution else "",
+            "repair_report": self.counterfactual_repair.generate_report() if self.counterfactual_repair else "",
+            "critique_report": self.multi_agent_critique.generate_report() if self.multi_agent_critique else ""
+        }
+
+        # Save to MongoDB
+        self.mongo_storage.save_failing_trace(
+            trace_data=trace_data,
+            problem_id=problem_id or "unknown",
+            problem_statement=trace.problem_statement,
+            gold_answer=trace.gold_answer,
+            final_answer=trace.final_answer,
+            analysis_results=results,
+            metrics=metrics,
+            reports=reports
+        )
