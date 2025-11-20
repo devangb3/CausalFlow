@@ -282,9 +282,8 @@ Be thorough and critical. Challenge weak causal claims.
 
     def generate_report(self) -> str:
 
-        lines = ["=" * 60]
+        lines = []
         lines.append("MULTI-AGENT CRITIQUE REPORT")
-        lines.append("=" * 60)
         lines.append(f"Number of Agents: {self.num_agents}")
         lines.append(f"Steps Critiqued: {len(self.critique_results)}")
 

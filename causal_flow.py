@@ -1,16 +1,6 @@
-"""
-CausalFlow: Main orchestrator for the complete framework.
-
-This module integrates all components of the CausalFlow framework:
-- Trace Extraction
-- Causal Graph Construction
-- Causal Attribution
-- Counterfactual Repair
-- Multi-Agent Critique
-"""
-
+import copy
 from typing import Dict, Any, Optional, List
-from trace_logger import TraceLogger, Step
+from trace_logger import TraceLogger, Step, StepType
 from causal_graph import CausalGraph
 from causal_attribution import CausalAttribution
 from counterfactual_repair import CounterfactualRepair
@@ -46,15 +36,14 @@ class CausalFlow:
         metrics_output_file: str = "examples/causal_metrics_results.json"
     ) -> Dict[str, Any]:
 
-        self.trace = trace
+        self.trace = self._prepare_analysis_trace(trace)
 
         print("\n[1/5] Constructing causal graph")
-        self.causal_graph = CausalGraph(trace)
-        print(f"Graph constructed: {self.causal_graph}")
+        self.causal_graph = CausalGraph(self.trace)
 
         print("\n[2/5] Performing causal attribution")
         self.causal_attribution = CausalAttribution(
-            trace=trace,
+            trace=self.trace,
             causal_graph=self.causal_graph,
             llm_client=self.llm_client
         )
@@ -65,7 +54,7 @@ class CausalFlow:
         if not skip_repair:
             print("\n[3/5] Generating counterfactual repairs")
             self.counterfactual_repair = CounterfactualRepair(
-                trace=trace,
+                trace=self.trace,
                 causal_attribution=self.causal_attribution,
                 llm_client=self.llm_client
             )
@@ -77,7 +66,7 @@ class CausalFlow:
 
         print("\n[4/5] Running multi-agent critique")
         self.multi_agent_critique = MultiAgentCritique(
-            trace=trace,
+            trace=self.trace,
             causal_attribution=self.causal_attribution,
             multi_agent_llm=self.multi_agent_llm
         )
@@ -101,6 +90,18 @@ class CausalFlow:
 
         print("Analysis complete!")
         return results
+
+    def _prepare_analysis_trace(self, trace: TraceLogger) -> TraceLogger:
+        """
+        Create a copy of the trace without the final answer step for analysis.
+        """
+        analysis_trace = copy.deepcopy(trace)
+
+        if analysis_trace.steps and analysis_trace.steps[-1].step_type == StepType.FINAL_ANSWER:
+            analysis_trace.steps.pop()
+
+        analysis_trace.current_step_id = len(analysis_trace.steps)
+        return analysis_trace
 
     def _compile_results(
         self,
@@ -167,23 +168,18 @@ class CausalFlow:
 
         sections.append("CAUSALFLOW COMPREHENSIVE ANALYSIS REPORT")
 
-        # Trace Summary
         sections.append(self._generate_trace_summary())
 
-        # Causal Graph
         if self.causal_graph:
             sections.append("CAUSAL GRAPH")
             sections.append(str(self.causal_graph.get_statistics()))
 
-        # Causal Attribution
         if self.causal_attribution:
             sections.append("\n" + self.causal_attribution.generate_report())
 
-        # Counterfactual Repair
         if self.counterfactual_repair:
             sections.append("\n" + self.counterfactual_repair.generate_report())
 
-        # Multi-Agent Critique
         if self.multi_agent_critique:
             sections.append("\n" + self.multi_agent_critique.generate_report())
 
@@ -199,10 +195,11 @@ class CausalFlow:
     def _generate_trace_summary(self) -> str:
         lines = ["TRACE SUMMARY"]
         lines.append("-" * 70)
-        lines.append(f"Total Steps: {len(self.trace.steps)}")
-        lines.append(f"Outcome: {'SUCCESS' if self.trace.success else 'FAILURE'}")
+        lines.append(f"Problem Statement: {self.trace.problem_statement}")
         lines.append(f"Final Answer: {self.trace.final_answer}")
         lines.append(f"Gold Answer: {self.trace.gold_answer}")
+        lines.append(f"Total Steps: {len(self.trace.steps)}")
+        lines.append(f"Outcome: {'SUCCESS' if self.trace.success else 'FAILURE'}")
         lines.append("")
 
         return "\n".join(lines)

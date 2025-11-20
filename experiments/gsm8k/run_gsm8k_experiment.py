@@ -15,7 +15,6 @@ from llm_client import LLMClient
 from math_reexecutor import MathReexecutor
 from datasets import load_dataset
 
-
 class GSM8KDataLoader:
     def __init__(self):
         self.reexecutor = MathReexecutor()
@@ -39,10 +38,7 @@ class GSM8KDataLoader:
         num = self.reexecutor.extract_number(answer_text)
         return str(num) if num is not None else answer_text
 
-
 class GSM8KExperiment:
-    """Runs GSM8K experiments with CausalFlow analysis."""
-
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.agent = GSM8KAgent(llm_client=LLMClient(api_key=self.api_key))
@@ -64,6 +60,7 @@ class GSM8KExperiment:
             'total': len(data),
             'correct': 0,
             'incorrect': 0,
+            'skipped': 0,
             'analyzed': 0,
             'results': []
         }
@@ -79,6 +76,23 @@ class GSM8KExperiment:
 
             result = self.agent.solve(question, gold_answer)
 
+            if result.get('error'):
+                print(f"ERROR: Failed to parse response - {result['error']}")
+                print(f"Skipping this problem")
+                stats['skipped'] += 1
+
+                problem_result = {
+                    'problem_id': i,
+                    'question': question,
+                    'gold_answer': gold_answer,
+                    'agent_answer': None,
+                    'success': False,
+                    'skipped': True,
+                    'error': result['error']
+                }
+                stats['results'].append(problem_result)
+                continue
+
             print(f"Agent Answer: {result['answer']}")
             print(f"Success: {result['success']}")
 
@@ -88,6 +102,7 @@ class GSM8KExperiment:
                 'gold_answer': gold_answer,
                 'agent_answer': result['answer'],
                 'success': result['success'],
+                'skipped': False,
                 'num_steps': len(result['trace'].steps)
             }
 
@@ -136,22 +151,17 @@ class GSM8KExperiment:
 
             stats['results'].append(problem_result)
 
-        stats['accuracy'] = stats['correct'] / stats['total'] if stats['total'] > 0 else 0
-        stats['error_rate'] = stats['incorrect'] / stats['total'] if stats['total'] > 0 else 0
+        # Calculate stats for non-skipped problems
+        attempted = stats['total'] - stats['skipped']
+        stats['accuracy'] = stats['correct'] / attempted if attempted > 0 else 0
+        stats['error_rate'] = stats['incorrect'] / attempted if attempted > 0 else 0
+        stats['skip_rate'] = stats['skipped'] / stats['total'] if stats['total'] > 0 else 0
         stats['analysis_coverage'] = stats['analyzed'] / stats['incorrect'] if stats['incorrect'] > 0 else 0
 
         summary_file = os.path.join(output_dir, "experiment_summary.json")
         with open(summary_file, 'w') as f:
             json.dump(stats, f, indent=2)
 
-        print(f"\n{'='*70}")
-        print("EXPERIMENT SUMMARY")
-        print(f"{'='*70}")
-        print(f"Total problems: {stats['total']}")
-        print(f"Correct: {stats['correct']} ({stats['accuracy']*100:.1f}%)")
-        print(f"Incorrect: {stats['incorrect']} ({stats['error_rate']*100:.1f}%)")
-        print(f"Failures analyzed: {stats['analyzed']}/{stats['incorrect']}")
-        print(f"\nResults saved to: {output_dir}/")
         print(f"Summary: {summary_file}")
 
         return stats
@@ -173,16 +183,16 @@ class GSM8KExperiment:
         report.append("")
 
         report.append("## Overview")
-        report.append(f"- Total problems attempted: {stats['total']}")
-        report.append(f"- Accuracy: {stats['accuracy']*100:.1f}%")
-        report.append(f"- Failures: {stats['incorrect']}")
-        report.append(f"- Failures analyzed by CausalFlow: {stats['analyzed']}")
+        report.append(f"Total problems attempted: {stats['total']}")
+        report.append(f"Accuracy: {stats['accuracy']*100:.1f}%")
+        report.append(f"Failures: {stats['incorrect']}")
+        report.append(f"Failures analyzed by CausalFlow: {stats['analyzed']}")
         report.append("")
 
         report.append(f"CausalFlow automatically identified the root causes of {stats['analyzed']} failures,")
         report.append("")
 
-        report.append("## Example Failures Analyzed")
+        report.append("## Failures Analyzed")
         report.append("")
 
         for i, result in enumerate(stats['results']):
@@ -216,7 +226,7 @@ def main():
         return
 
     experiment = GSM8KExperiment(api_key=api_key)
-    num_rows = 10
+    num_rows = 11
     stats = experiment.run_experiment(
         num_rows=num_rows,
         output_dir=f"gsm8k_results_{num_rows}"
