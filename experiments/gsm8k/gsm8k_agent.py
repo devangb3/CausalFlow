@@ -18,7 +18,7 @@ class GSM8KAgent:
     ):
 
         if use_structured_outputs and llm_client is None:
-            self.llm = LLMClient(model="openai/gpt-4.1-nano")
+            self.llm = LLMClient(model="google/gemini-2.5-flash")
         else:
             self.llm = llm_client or LLMClient()
 
@@ -34,6 +34,7 @@ class GSM8KAgent:
         if self.use_structured_outputs:
             return self._solve_structured(question, gold_answer)
         else:
+            print("Using legacy solver")
             return self._solve_legacy(question, gold_answer)
 
     def _solve_structured(
@@ -67,7 +68,8 @@ Be precise with expressions - they should be evaluatable (e.g., "16 - 3 - 4" not
             solution = self.llm.generate_structured(
                 breakdown_prompt,
                 schema_name="gsm8k_solution",
-                system_message="You are a helpful math tutor. Solve problems step by step with clear, evaluatable mathematical expressions."
+                system_message="You are a helpful math tutor. Solve problems step by step with clear, evaluatable mathematical expressions.",
+                model_name="google/gemini-2.5-flash"
             )
 
             step_1 = self.trace.log_reasoning(
@@ -311,29 +313,3 @@ Provide your solution:"""
 
         return "unknown"
 
-    def get_trace(self) -> Optional[TraceLogger]:
-        return self.trace
-
-
-if __name__ == "__main__":
-    from dotenv import load_dotenv
-    import os
-
-    load_dotenv()
-
-    agent = GSM8KAgent()
-
-    question = "Janet's ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?"
-
-    gold_answer = "18"  # 16 - 3 - 4 = 9 eggs, 9 * $2 = $18
-
-    print(f"Question: {question}\n")
-    result = agent.solve(question, gold_answer)
-
-    print(f"Agent's Answer: {result['answer']}")
-    print(f"Correct Answer: {gold_answer}")
-    print(f"Success: {result['success']}")
-    print(f"\nTrace has {len(result['trace'].steps)} steps")
-
-    result['trace'].to_json("experiments/gsm8k/gsm8k_test_trace.json")
-    print("Trace saved to experiments/gsm8k/gsm8k_test_trace.json")

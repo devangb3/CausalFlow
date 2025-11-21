@@ -227,6 +227,13 @@ class LLMSchemas:
                         schema.update(option)
                         break
 
+            if schema.get("type") == "object":
+                if "properties" in schema:
+                    if "additionalProperties" not in schema:
+                        schema["additionalProperties"] = False
+                elif "additionalProperties" not in schema:
+                    schema["additionalProperties"] = True
+
             # Recursively process nested objects
             for _, value in list(schema.items()):
                 if isinstance(value, dict):

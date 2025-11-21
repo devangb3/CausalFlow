@@ -94,7 +94,8 @@ class CausalAttribution:
             result = self.llm_client.generate_structured(
                 intervention_prompt,
                 schema_name="intervention",
-                system_message="You are an expert at debugging and correcting agent reasoning steps."
+                system_message="You are an expert at debugging and correcting agent reasoning steps. Always respond using the provided schema in JSON format.",
+                model_name="anthropic/claude-haiku-4.5"
             )
 
             # Create new step with corrected content
@@ -178,15 +179,7 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
 
         In a full implementation, this would actually re-run the agent.
         For now, we use heuristics or LLM to predict the outcome.
-
-        Args:
-            step_id: The step that was intervened on
-            intervened_step: The modified step
-
-        Returns:
-            True if predicted to succeed, False otherwise
         """
-        # If a re-executor function is provided, use it
         if self.re_executor:
             try:
                 return self.re_executor(step_id, intervened_step)
@@ -194,7 +187,6 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
                 print(f"Re-execution failed: {e}")
                 return False
 
-        # Otherwise, use LLM to predict outcome
         return self._llm_predict_outcome(step_id, intervened_step, self.trace.problem_statement)
 
     def _llm_predict_outcome(self, step_id: int, intervened_step: Step, problem_statement: str) -> bool:
@@ -225,7 +217,8 @@ Descendants of this step (affected by the intervention):
             result = self.llm_client.generate_structured(
                 prompt,
                 schema_name="outcome_prediction",
-                temperature=0.0
+                temperature=0.0,
+                model_name="google/gemini-2.5-flash"
             )
             return result.would_succeed
         except Exception as e:
@@ -244,33 +237,3 @@ Descendants of this step (affected by the intervention):
             (step_id, score) for step_id, score in self.crs_scores.items()
             if score >= 0.5
         ]
-
-    def generate_report(self) -> str:
-        lines = []
-        lines.append("CAUSAL ATTRIBUTION REPORT")
-        lines.append(f"Total Steps Analyzed: {len(self.crs_scores)}")
-        lines.append("")
-
-        causal_steps = self.get_causal_steps()
-        lines.append(f"Causally Responsible Steps: {len(causal_steps)}")
-        lines.append("")
-
-        top_steps = self.get_top_causal_steps()
-        lines.append("Causal Steps (by Initial CRS):")
-        lines.append("-" * 60)
-
-        for step_id, crs in top_steps:
-            if crs > 0:
-                step = self.trace.get_step(step_id)
-                lines.append(f"\nStep {step_id} (CRS = {crs:.2f}):")
-                lines.append(f"  Type: {step.step_type.value}")
-                lines.append(f"  Summary: {summarize_step(step)}")
-
-                if step_id in self.intervention_results:
-                    result = self.intervention_results[step_id]
-                    if "intervened_step" in result:
-                        step_data = result["intervened_step"].copy()
-                        step_data["step_type"] = StepType(step_data["step_type"])
-                        intervened = Step(**step_data)
-                        lines.append(f"  Intervention: {summarize_step(intervened)}")
-        return "\n".join(lines)

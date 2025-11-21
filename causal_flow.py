@@ -1,20 +1,20 @@
 import copy
 from typing import Dict, Any, Optional, List
-from trace_logger import TraceLogger, Step, StepType
+from trace_logger import TraceLogger, Step
 from causal_graph import CausalGraph
 from causal_attribution import CausalAttribution
 from counterfactual_repair import CounterfactualRepair
 from multi_agent_critique import MultiAgentCritique
 from llm_client import LLMClient, MultiAgentLLM
-import json
-
+from mongodb_storage import MongoDBStorage
 
 class CausalFlow:
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: str = "google/gemini-2.5-flash-lite",
-        num_critique_agents: int = 3 #Number of agents for multi-agent critique
+        num_critique_agents: int = 3, #Number of agents for multi-agent critique
+        mongo_storage: Optional[MongoDBStorage] = None
     ):
 
         self.llm_client = LLMClient(api_key=api_key, model=model)
@@ -28,15 +28,14 @@ class CausalFlow:
         self.causal_attribution: Optional[CausalAttribution] = None
         self.counterfactual_repair: Optional[CounterfactualRepair] = None
         self.multi_agent_critique: Optional[MultiAgentCritique] = None
+        self.mongo_storage = mongo_storage
 
     def analyze_trace(
         self,
-        trace: TraceLogger,
-        skip_repair: bool = False,
-        metrics_output_file: str = "examples/causal_metrics_results.json"
+        trace: TraceLogger
     ) -> Dict[str, Any]:
 
-        self.trace = self._prepare_analysis_trace(trace)
+        self.trace = trace
 
         print("\n[1/5] Constructing causal graph")
         self.causal_graph = CausalGraph(self.trace)
@@ -50,20 +49,16 @@ class CausalFlow:
         crs_scores = self.causal_attribution.compute_causal_responsibility()
         causal_steps = self.causal_attribution.get_causal_steps()
         print(f"Attribution complete: {len(causal_steps)} causal steps identified")
-
-        if not skip_repair:
-            print("\n[3/5] Generating counterfactual repairs")
-            self.counterfactual_repair = CounterfactualRepair(
-                trace=self.trace,
-                causal_attribution=self.causal_attribution,
-                llm_client=self.llm_client
-            )
-            repairs = self.counterfactual_repair.generate_repairs(step_ids=causal_steps)
-            print(f"Repair complete: {sum(len(r) for r in repairs.values())} repairs proposed")
-        else:
-            print("\n[3/5] Skipping counterfactual repair")
-            repairs = {}
-
+        
+        print("\n[3/5] Generating counterfactual repairs")
+        self.counterfactual_repair = CounterfactualRepair(
+            trace=self.trace,
+            causal_attribution=self.causal_attribution,
+            llm_client=self.llm_client
+        )
+        repairs = self.counterfactual_repair.generate_repairs(step_ids=causal_steps)
+        print(f"Repair complete: {sum(len(r) for r in repairs.values())} repairs proposed")
+        
         print("\n[4/5] Running multi-agent critique")
         self.multi_agent_critique = MultiAgentCritique(
             trace=self.trace,
@@ -74,34 +69,20 @@ class CausalFlow:
         consensus_steps = self.multi_agent_critique.get_consensus_causal_steps()
         print(f"Critique complete: {len(consensus_steps)} steps confirmed by consensus")
 
-
         print("\n[5/5] Compiling results")
         results = self._compile_results(
             crs_scores,
             causal_steps,
-            repairs if not skip_repair else {},
+            repairs,
             critiques,
             consensus_steps
         )
 
-        print(f"\n[6/6] Generating metrics JSON")
-        self.export_metrics(metrics_output_file, consensus_steps)
-        print(f"Metrics saved to: {metrics_output_file}")
+        print(f"\n[6/6] Generating metrics")
+        metrics = self.generate_metrics(consensus_steps)
+        results['metrics'] = metrics
 
-        print("Analysis complete!")
         return results
-
-    def _prepare_analysis_trace(self, trace: TraceLogger) -> TraceLogger:
-        """
-        Create a copy of the trace without the final answer step for analysis.
-        """
-        analysis_trace = copy.deepcopy(trace)
-
-        if analysis_trace.steps and analysis_trace.steps[-1].step_type == StepType.FINAL_ANSWER:
-            analysis_trace.steps.pop()
-
-        analysis_trace.current_step_id = len(analysis_trace.steps)
-        return analysis_trace
 
     def _compile_results(
         self,
@@ -114,33 +95,33 @@ class CausalFlow:
 
         results = {
             "trace_summary": {
-                "total_steps": len(self.trace.steps),
-                "success": self.trace.success,
-                "final_answer": self.trace.final_answer,
-                "gold_answer": self.trace.gold_answer
+                "total_steps": len(self.trace.steps) if self.trace else 0,
+                "success": self.trace.success if self.trace else False,
+                "final_answer": self.trace.final_answer if self.trace else "",
+                "gold_answer": self.trace.gold_answer if self.trace else ""
             },
             "causal_graph": {
-                "statistics": self.causal_graph.get_statistics()
+                "statistics": self.causal_graph.get_statistics() if self.causal_graph else {}
             },
             "causal_attribution": {
-                "crs_scores": crs_scores,
-                "causal_steps": causal_steps,
-                "top_causal_steps": self.causal_attribution.get_top_causal_steps()
+                "crs_scores": crs_scores if crs_scores else {},
+                "causal_steps": causal_steps if causal_steps else []
             },
             "counterfactual_repair": {},
             "multi_agent_critique": {}
         }
 
-        # Add repair results if available
         if self.counterfactual_repair:
             best_repairs = self.counterfactual_repair.get_all_best_repairs()
             results["counterfactual_repair"] = {
-                "num_steps_repaired": len(repairs),
-                "num_successful_repairs": len(best_repairs),
+                "num_steps_repaired": len(repairs) if repairs else 0,
+                "num_successful_repairs": len(best_repairs) if best_repairs else 0,
                 "best_repairs": {
                     step_id: {
-                        "minimality_score": repair.minimality_score,
-                        "success_predicted": repair.success_predicted
+                        "minimality_score": repair.minimality_score if repair else 0.0,
+                        "success_predicted": repair.success_predicted if repair else False,
+                        "original_step": repair.original_step.to_dict(),
+                        "repaired_step": repair.repaired_step.to_dict()
                     }
                     for step_id, repair in best_repairs.items()
                 }
@@ -149,62 +130,21 @@ class CausalFlow:
         # Add critique results if available
         if self.multi_agent_critique:
             results["multi_agent_critique"] = {
-                "num_steps_critiqued": len(critiques),
-                "consensus_steps": [step.to_dict() for step in consensus_steps],
+                "num_steps_critiqued": len(critiques) if critiques else 0,
+                "consensus_steps": [step.to_dict() for step in consensus_steps] if consensus_steps else [],
                 "critique_details": {
                     step_id: {
-                        "consensus_score": critique.consensus_score,
-                        "final_verdict": critique.final_verdict,
-                        "num_critiques": len(critique.critiques)
+                        "consensus_score": critique.consensus_score if critique else 0.0,
+                        "final_verdict": critique.final_verdict if critique else False,
+                        "num_critiques": len(critique.critiques) if critique else 0
                     }
-                    for step_id, critique in critiques.items()
+                    for step_id, critique in critiques.items() if critique
                 }
             }
 
         return results
 
-    def generate_full_report(self, output_file: Optional[str] = None) -> str:
-        sections = []
-
-        sections.append("CAUSALFLOW COMPREHENSIVE ANALYSIS REPORT")
-
-        sections.append(self._generate_trace_summary())
-
-        if self.causal_graph:
-            sections.append("CAUSAL GRAPH")
-            sections.append(str(self.causal_graph.get_statistics()))
-
-        if self.causal_attribution:
-            sections.append("\n" + self.causal_attribution.generate_report())
-
-        if self.counterfactual_repair:
-            sections.append("\n" + self.counterfactual_repair.generate_report())
-
-        if self.multi_agent_critique:
-            sections.append("\n" + self.multi_agent_critique.generate_report())
-
-        report = "\n".join(sections)
-
-        if output_file:
-            with open(output_file, 'w') as f:
-                f.write(report)
-            print(f"\nReport saved to: {output_file}")
-
-        return report
-
-    def _generate_trace_summary(self) -> str:
-        lines = ["TRACE SUMMARY"]
-        lines.append("-" * 70)
-        lines.append(f"Problem Statement: {self.trace.problem_statement}")
-        lines.append(f"Final Answer: {self.trace.final_answer}")
-        lines.append(f"Gold Answer: {self.trace.gold_answer}")
-        lines.append(f"Total Steps: {len(self.trace.steps)}")
-        lines.append(f"Outcome: {'SUCCESS' if self.trace.success else 'FAILURE'}")
-        lines.append("")
-
-        return "\n".join(lines)
-
-    def generate_metrics_json(
+    def generate_metrics(
         self,
         consensus_steps: List[Step]
     ) -> Dict[str, Any]:
@@ -370,33 +310,3 @@ class CausalFlow:
             reasoning = response.split("REASONING:")[-1].strip()
             return reasoning
         return response
-
-    def export_results(self, filepath: str):
-
-        if not self.causal_attribution:
-            raise ValueError("No analysis has been performed yet. Call analyze_trace() first.")
-
-        results = self._compile_results(
-            self.causal_attribution.crs_scores,
-            self.causal_attribution.get_causal_steps(),
-            self.counterfactual_repair.repairs if self.counterfactual_repair else {},
-            self.multi_agent_critique.critique_results if self.multi_agent_critique else {},
-            self.multi_agent_critique.get_consensus_causal_steps() if self.multi_agent_critique else []
-        )
-
-        with open(filepath, 'w') as f:
-            json.dump(results, f, indent=2)
-
-        print(f"Results exported to: {filepath}")
-
-    def export_metrics(
-        self,
-        filepath: str,
-        consensus_steps: List[Step]
-    ):
-        metrics = self.generate_metrics_json(consensus_steps)
-
-        with open(filepath, 'w') as f:
-            json.dump(metrics, f, indent=2)
-
-        print(f"Metrics exported to: {filepath}")

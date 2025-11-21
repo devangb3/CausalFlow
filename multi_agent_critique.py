@@ -85,7 +85,7 @@ class MultiAgentCritique:
         critiques = []
 
         # Agent B (first critic)
-        critique_b = self._generate_critique(step_id, agent_index=1, role="critic")
+        critique_b = self._generate_critique(step_id, agent_index=1, role="critic", model_name="google/gemini-2.5-flash")
         critiques.append({
             "agent": "Agent_B",
             "role": "critic",
@@ -99,6 +99,7 @@ class MultiAgentCritique:
             step_id,
             agent_index=2,
             role="meta-critic",
+            model_name="google/gemini-2.5-flash",
             previous_critique=critique_b["response"]
         )
         critiques.append({
@@ -126,6 +127,7 @@ class MultiAgentCritique:
         step_id: int,
         agent_index: int,
         role: str,
+        model_name: Optional[str] = "google/gemini-2.5-flash",
         previous_critique: Optional[str] = None
     ) -> Dict[str, Any]:
 
@@ -141,11 +143,11 @@ class MultiAgentCritique:
             result = agent.generate_structured(
                 prompt,
                 schema_name="critique",
-                system_message=f"You are a critical evaluator (role: {role}) analyzing causal claims.",
-                temperature=0.3
+                system_message=f"You are a critical evaluator (role: {role}) analyzing causal claims. Always respond using the providedschema in JSON format.",
+                temperature=0.3,
+                model_name=model_name
             )
 
-            # Extract structured fields from Pydantic model
             agrees = result.agreement in ["AGREE", "PARTIAL"]
             confidence = result.confidence
             reasoning = result.reasoning
@@ -279,38 +281,3 @@ Be thorough and critical. Challenge weak causal claims.
             self.trace.get_step(step_id) for step_id in self.critique_results.keys()
             if self.critique_results[step_id].consensus_score >= threshold
         ]
-
-    def generate_report(self) -> str:
-
-        lines = []
-        lines.append("MULTI-AGENT CRITIQUE REPORT")
-        lines.append(f"Number of Agents: {self.num_agents}")
-        lines.append(f"Steps Critiqued: {len(self.critique_results)}")
-
-        consensus_steps = self.get_consensus_causal_steps()
-        lines.append(f"Steps Confirmed by Consensus: {len(consensus_steps)}")
-        lines.append("")
-
-        for step_id in sorted(self.critique_results.keys()):
-            result = self.critique_results[step_id]
-            step = self.trace.get_step(step_id)
-
-            lines.append(f"\nStep {step_id} ({step.step_type.value}):")
-            lines.append("-" * 60)
-            lines.append(f"Content: {summarize_step(step)}")
-            lines.append(f"Proposed by: {result.proposed_by}")
-            lines.append(f"Consensus Score: {result.consensus_score:.2f}")
-            lines.append(f"Final Verdict: {'CAUSAL' if result.final_verdict else 'NOT CAUSAL'}")
-            lines.append("")
-
-            for critique in result.critiques:
-                lines.append(f"  {critique['agent']} ({critique['role']}):")
-                lines.append(f"    Agrees: {critique['agrees']}")
-                lines.append(f"    Confidence: {critique['confidence']:.2f}")
-                reasoning = critique['response'].split('REASONING:')[-1].strip()
-                lines.append(f"    Reasoning: {reasoning}")
-                lines.append("")
-
-        lines.append("=" * 60)
-
-        return "\n".join(lines)
