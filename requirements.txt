@@ -10,6 +10,7 @@ click==8.3.1
 datasets==4.4.1
 dill==0.4.0
 distro==1.9.0
+dnspython==2.8.0
 filelock==3.20.0
 frozenlist==1.8.0
 fsspec==2025.10.0
@@ -31,7 +32,7 @@ propcache==0.4.1
 pyarrow==22.0.0
 pydantic==2.12.4
 pydantic-core==2.41.5
-pymongo==4.10.1
+pymongo==4.15.4
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 pytz==2025.2
