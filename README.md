@@ -159,8 +159,7 @@ mongo = MongoDBStorage()  # Uses MONGODB_URI from .env
 # Create a new run
 run_id = mongo.create_run(
     experiment_name="GSM8K",
-    num_problems=10,
-    metadata={"description": "My experiment"}
+    num_problems=10
 )
 
 # Pass to CausalFlow

@@ -223,40 +223,5 @@ Step {step.step_id} ({step.step_type.value}):
             best_repair = self.get_best_repair(step_id)
             if best_repair is not None:
                 best_repairs[step_id] = best_repair
-
+        
         return best_repairs
-
-    def generate_report(self) -> str:
-
-        lines = ["=" * 60]
-        lines.append("COUNTERFACTUAL REPAIR REPORT")
-        lines.append("=" * 60)
-        lines.append(f"Total Steps with Repairs: {len(self.repairs)}")
-        lines.append("")
-
-        best_repairs = self.get_all_best_repairs()
-        lines.append(f"Steps with Successful Repairs: {len(best_repairs)}")
-        lines.append("")
-
-        for step_id in sorted(self.repairs.keys()):
-            step = self.trace.get_step(step_id)
-            lines.append(f"\nStep {step_id} ({step.step_type.value}):")
-            lines.append("-" * 60)
-
-            original_text = extract_step_text(step)
-            lines.append(f"Original: {original_text}")
-
-            best = self.get_best_repair(step_id)
-            if best:
-                repaired_text = extract_step_text(best.repaired_step)
-                lines.append(f"Best Repair: {repaired_text}")
-                lines.append(f"Minimality: {best.minimality_score:.2f}")
-                lines.append(f"Success Predicted: {best.success_predicted}")
-
-            num_proposals = len(self.repairs[step_id])
-            num_successful = sum(1 for r in self.repairs[step_id] if r.success_predicted)
-            lines.append(f"Total Proposals: {num_proposals} ({num_successful} successful)")
-
-        lines.append("\n" + "=" * 60)
-
-        return "\n".join(lines)

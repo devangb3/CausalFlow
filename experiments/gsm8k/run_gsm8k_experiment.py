@@ -1,8 +1,7 @@
 import os
 import sys
-import json
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from dotenv import load_dotenv
 from tqdm import tqdm
 
@@ -40,42 +39,31 @@ class GSM8KDataLoader:
         return str(num) if num is not None else answer_text
 
 class GSM8KExperiment:
-    def __init__(self, api_key: str, use_mongodb: bool = True):
+    def __init__(self, api_key: str):
         self.api_key = api_key
         self.agent = GSM8KAgent(llm_client=LLMClient(api_key=self.api_key))
 
-        # Initialize MongoDB storage if requested
         self.mongo_storage = None
-        if use_mongodb:
-            try:
-                self.mongo_storage = MongoDBStorage()
-                print("MongoDB storage initialized")
-            except Exception as e:
-                print(f"WARNING: Could not initialize MongoDB storage: {e}")
-                print("Continuing without MongoDB storage...")
+        try:
+            self.mongo_storage = MongoDBStorage()
+        except Exception as e:
+            raise Exception(f"Could not initialize MongoDB storage: {e}")
 
         self.causal_flow = CausalFlow(api_key=self.api_key, mongo_storage=self.mongo_storage)
+
         self.data_loader = GSM8KDataLoader()
-        self.results = []
 
     def run_experiment(
         self,
         num_rows: int = 5,
-        output_dir: str = "gsm8k_results"
-    ) -> Dict[str, Any]:
-        os.makedirs(output_dir, exist_ok=True)
-
+    ):
         data = self.data_loader.load_data(num_rows)
         print(f"\nRunning experiment on {len(data)} problems")
 
-        # Create MongoDB run if storage is available
-        run_id = None
-        if self.mongo_storage:
-            run_id = self.mongo_storage.create_run(
-                experiment_name="GSM8K",
-                num_problems=len(data),
-                metadata={"output_dir": output_dir}
-            )
+        run_id = self.mongo_storage.create_run(
+            experiment_name="GSM8K",
+            num_problems=len(data)
+        )
 
         stats = {
             'total': len(data),
@@ -127,12 +115,7 @@ class GSM8KExperiment:
                 'num_steps': len(result['trace'].steps)
             }
 
-            trace_file = os.path.join(output_dir, f"trace_{i}.json")
-            result['trace'].to_json(trace_file)
-            problem_result['trace_file'] = trace_file
-
-            # Save passing traces to MongoDB
-            if result['success'] and self.mongo_storage and run_id:
+            if result['success']:
                 try:
                     self.mongo_storage.add_passing_trace(
                         run_id=run_id,
@@ -148,129 +131,34 @@ class GSM8KExperiment:
             # Analyze failing traces with CausalFlow
             if not result['success']:
                 try:
-                    metrics_file = os.path.join(output_dir, f"metrics_{i}.json")
-                    analysis = self.causal_flow.analyze_trace(
-                        result['trace'],
-                        skip_repair=False,
-                        metrics_output_file=metrics_file,
-                        problem_id=i
-                    )
-                    report_file = os.path.join(output_dir, f"analysis_{i}.txt")
-                    self.causal_flow.generate_full_report(report_file)
-
-                    results_file = os.path.join(output_dir, f"analysis_{i}.json")
-                    self.causal_flow.export_results(results_file)
-
-                    causal_steps = []
-                    if analysis:
-                        if 'multi_agent_critique' in analysis and 'consensus_steps' in analysis['multi_agent_critique']:
-                            causal_steps = [s['step_id'] for s in analysis['multi_agent_critique']['consensus_steps']]
-                        elif 'causal_attribution' in analysis:
-                            causal_steps = analysis['causal_attribution'].get('causal_steps', [])
-
-                    problem_result['causal_analysis'] = {
-                        'report_file': report_file,
-                        'results_file': results_file,
-                        'causal_steps': causal_steps
-                    }
+                    analysis = self.causal_flow.analyze_trace(result['trace'])
 
                     stats['analyzed'] += 1
-                    print(f"  Analysis saved to {report_file}")
-
+                    self.mongo_storage.add_failing_trace(
+                        run_id=run_id,
+                        trace_data=result['trace'].to_json(),
+                        problem_id=i,
+                        problem_statement=question,
+                        gold_answer=gold_answer,
+                        final_answer=result['answer'],
+                        analysis_results=analysis,
+                        metrics=analysis['metrics']
+                    )
                 except Exception as e:
                     print(f"  Error during analysis: {e}")
-                    problem_result['causal_analysis'] = {'error': str(e)}
-
+                    
             if result['success']:
                 stats['correct'] += 1
             else:
                 stats['incorrect'] += 1
-
-            stats['results'].append(problem_result)
-
-        # Calculate stats for non-skipped problems
-        attempted = stats['total'] - stats['skipped']
-        stats['accuracy'] = stats['correct'] / attempted if attempted > 0 else 0
-        stats['error_rate'] = stats['incorrect'] / attempted if attempted > 0 else 0
-        stats['skip_rate'] = stats['skipped'] / stats['total'] if stats['total'] > 0 else 0
-        stats['analysis_coverage'] = stats['analyzed'] / stats['incorrect'] if stats['incorrect'] > 0 else 0
-
-        summary_file = os.path.join(output_dir, "experiment_summary.json")
-        with open(summary_file, 'w') as f:
-            json.dump(stats, f, indent=2)
-
-        print(f"Summary: {summary_file}")
-
-        # Print MongoDB statistics
-        if self.mongo_storage and run_id:
-            run_stats = self.mongo_storage.get_run_statistics(run_id)
-            print(f"\nMongoDB Statistics for this run:")
-            print(f"  Run ID: {run_stats['run_id']}")
-            print(f"  Total traces: {run_stats['total_traces']}")
-            print(f"  Passing traces: {run_stats['passing_traces']}")
-            print(f"  Failing traces: {run_stats['failing_traces']}")
-            print(f"  Accuracy: {run_stats['accuracy']:.2%}")
-
-            # Print overall statistics
-            overall_stats = self.mongo_storage.get_statistics()
-            print(f"\nOverall MongoDB Statistics (all runs):")
-            print(f"  Total runs: {overall_stats['total_runs']}")
-            print(f"  Total traces: {overall_stats['total_traces']}")
-            print(f"  Total passing: {overall_stats['total_passing_traces']}")
-            print(f"  Total failing: {overall_stats['total_failing_traces']}")
-
-        return stats
-
-    def generate_benefits_report(self, output_dir: str):
-        summary_file = os.path.join(output_dir, "experiment_summary.json")
-
-        if not os.path.exists(summary_file):
-            print("No summary file found. Run experiment first.")
-            return
-
-        with open(summary_file, 'r') as f:
-            stats = json.load(f)
-
-        report = []
-        report.append("=" * 80)
-        report.append("CausalFlow Report for GSM8K")
-        report.append("=" * 80)
-        report.append("")
-
-        report.append("## Overview")
-        report.append(f"Total problems attempted: {stats['total']}")
-        report.append(f"Accuracy: {stats['accuracy']*100:.1f}%")
-        report.append(f"Failures: {stats['incorrect']}")
-        report.append(f"Failures analyzed by CausalFlow: {stats['analyzed']}")
-        report.append("")
-
-        report.append(f"CausalFlow automatically identified the root causes of {stats['analyzed']} failures,")
-        report.append("")
-
-        report.append("## Failures Analyzed")
-        report.append("")
-
-        for i, result in enumerate(stats['results']):
-            if not result['success'] and 'causal_analysis' in result:
-                report.append(f"### Problem {result['problem_id'] + 1}")
-                report.append(f"Question: {result['question']}")
-                report.append(f"Expected: {result['gold_answer']}")
-                report.append(f"Got: {result['agent_answer']}")
-
-                if 'causal_steps' in result['causal_analysis']:
-                    causal_steps = result['causal_analysis']['causal_steps']
-                    report.append(f"Causal steps identified: {len(causal_steps)}")
-                    report.append(f"See detailed analysis: {result['causal_analysis']['report_file']}")
-
-                report.append("")
-
-        report_file = os.path.join(output_dir, "causalflow_benefits.txt")
-        with open(report_file, 'w') as f:
-            f.write('\n'.join(report))
-
-        print(f"\nReport saved to: {report_file}")
-        print('\n'.join(report))
-
+        
+        run_stats = self.mongo_storage.get_run_statistics(run_id)
+        print(f"\nMongoDB Statistics for this run:")
+        print(f"  Run ID: {run_stats['run_id']}")
+        print(f"  Total traces: {run_stats['total_traces']}")
+        print(f"  Passing traces: {run_stats['passing_traces']}")
+        print(f"  Failing traces: {run_stats['failing_traces']}")
+        print(f"  Accuracy: {run_stats['accuracy']:.2%}")
 
 def main():
 
@@ -281,14 +169,9 @@ def main():
         return
 
     experiment = GSM8KExperiment(api_key=api_key)
-    num_rows = 11
-    stats = experiment.run_experiment(
-        num_rows=num_rows,
-        output_dir=f"gsm8k_results_{num_rows}"
-    )
+    num_rows = 15
 
-    if stats['analyzed'] > 0:
-        experiment.generate_benefits_report(f"gsm8k_results_{num_rows}")
+    experiment.run_experiment(num_rows=num_rows)
 
 if __name__ == "__main__":
     main()

@@ -1,10 +1,11 @@
 import os
 import json
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from openai import OpenAI
 from dotenv import load_dotenv
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from schemas import LLMSchemas
+from text_processor import convert_text_to_jsonl
 
 load_dotenv()
 
@@ -52,9 +53,8 @@ class LLMClient:
         response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
-            temperature=temperature or self.temperature
+            temperature=temperature or self.temperature,
         )
-
         return response.choices[0].message.content
 
     def generate_structured(
@@ -62,7 +62,8 @@ class LLMClient:
         prompt: str,
         schema_name: str,
         system_message: Optional[str] = None,
-        temperature: Optional[float] = None
+        temperature: Optional[float] = None,
+        model_name: Optional[str] = "google/gemini-2.5-flash"
     ) -> BaseModel:
 
         messages = []
@@ -78,25 +79,40 @@ class LLMClient:
             "content": prompt
         })
 
-        # Get the response format for structured outputs
         response_format = LLMSchemas.get_response_format(schema_name)
 
         response = self.client.chat.completions.create(
-            model=self.model,
+            model=model_name,
             messages=messages,
             temperature=temperature or self.temperature,
+            max_tokens=2000,
             response_format=response_format
         )
 
         content = response.choices[0].message.content
 
+        if not content:
+            raise ValueError("Empty response from LLM")
         try:
-            data = json.loads(content)
+            parsed_objects = convert_text_to_jsonl(content)
+            
+            if not parsed_objects:
+                raise ValueError("No valid JSON objects found in response")
+            data = parsed_objects[0]
+            
+            if not isinstance(data, dict):
+                raise ValueError(f"Expected JSON object, got {type(data)}")
+            
+            if "mode" in data and "text" in data and data.get("mode") == "text":
+                try:
+                    data = json.loads(content.strip())
+                except json.JSONDecodeError:
+                    raise ValueError("Response is plain text, not valid JSON")
+            
             return LLMSchemas.parse_response(schema_name, data)
-        except json.JSONDecodeError as e:
+            
+        except ValueError as e:
             raise ValueError(f"Failed to parse JSON response: {e}\nContent: {content}")
-        except ValidationError as e:
-            raise ValueError(f"Response validation failed: {e}\nContent: {content}")
 
 class MultiAgentLLM:
 
