@@ -112,7 +112,9 @@ class LLMClient:
             return LLMSchemas.parse_response(schema_name, data)
             
         except ValueError as e:
-            raise ValueError(f"Failed to parse JSON response: {e}\nContent: {content}")
+            content = content.strip()
+            data = data
+            raise ValueError(f"Failed to parse JSON response: {e}")
 
 class MultiAgentLLM:
 

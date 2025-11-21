@@ -143,7 +143,7 @@ class MultiAgentCritique:
             result = agent.generate_structured(
                 prompt,
                 schema_name="critique",
-                system_message=f"You are a critical evaluator (role: {role}) analyzing causal claims.",
+                system_message=f"You are a critical evaluator (role: {role}) analyzing causal claims. Always respond using the providedschema in JSON format.",
                 temperature=0.3,
                 model_name=model_name
             )

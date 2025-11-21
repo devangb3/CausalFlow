@@ -139,7 +139,8 @@ class MongoDBStorage:
         trace_obj = self._convert_keys_to_strings(trace_obj)
         analysis_results = self._convert_keys_to_strings(analysis_results)
         metrics = self._convert_keys_to_strings(metrics)
-
+        final_repairs = analysis_results.get("counterfactual_repair", {}).get("best_repairs", {})
+        print("Type of final_repairs: ", type(final_repairs))
         trace_document = {
             "problem_id": problem_id,
             "timestamp": datetime.utcnow().isoformat(),
@@ -149,11 +150,11 @@ class MongoDBStorage:
             "final_answer": final_answer,
 
             "trace": trace_obj,
-
+            
             "analysis": {
                 "causal_graph": analysis_results.get("causal_graph", {}),
                 "causal_attribution": analysis_results.get("causal_attribution", {}),
-                "counterfactual_repairs": analysis_results.get("counterfactual_repairs", {}),
+                "final_repairs": final_repairs,
                 "multi_agent_critique": analysis_results.get("multi_agent_critique", {})
             },
 

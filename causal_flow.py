@@ -69,7 +69,6 @@ class CausalFlow:
         consensus_steps = self.multi_agent_critique.get_consensus_causal_steps()
         print(f"Critique complete: {len(consensus_steps)} steps confirmed by consensus")
 
-
         print("\n[5/5] Compiling results")
         results = self._compile_results(
             crs_scores,
@@ -120,7 +119,9 @@ class CausalFlow:
                 "best_repairs": {
                     step_id: {
                         "minimality_score": repair.minimality_score if repair else 0.0,
-                        "success_predicted": repair.success_predicted if repair else False
+                        "success_predicted": repair.success_predicted if repair else False,
+                        "original_step": repair.original_step.to_dict(),
+                        "repaired_step": repair.repaired_step.to_dict()
                     }
                     for step_id, repair in best_repairs.items()
                 }

@@ -94,7 +94,7 @@ class CausalAttribution:
             result = self.llm_client.generate_structured(
                 intervention_prompt,
                 schema_name="intervention",
-                system_message="You are an expert at debugging and correcting agent reasoning steps.",
+                system_message="You are an expert at debugging and correcting agent reasoning steps. Always respond using the provided schema in JSON format.",
                 model_name="anthropic/claude-haiku-4.5"
             )
 

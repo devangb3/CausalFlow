@@ -90,7 +90,7 @@ class CounterfactualRepair:
                 result = self.llm_client.generate_structured(
                     prompt,
                     schema_name="repair",
-                    system_message="You are an expert at debugging and fixing agent reasoning. Generate minimal, targeted edits.",
+                    system_message="You are an expert at debugging and fixing agent reasoning. Generate minimal, targeted edits. Always respond using the provided schema in JSON format.",
                     temperature=0.7
                 )
 
@@ -207,7 +207,6 @@ Step {step.step_id} ({step.step_type.value}):
         if step_id not in self.repairs:
             return None
 
-        # Filter to successful repairs
         successful = [r for r in self.repairs[step_id] if r.success_predicted]
 
         if not successful:
