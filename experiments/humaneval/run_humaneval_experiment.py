@@ -38,9 +38,8 @@ class HumanevalDataLoader:
 
 
 class HumanevalExperiment:
-    def __init__(self, api_key: str, use_mongodb: bool = True):
+    def __init__(self, api_key: str):
         self.api_key = api_key
-        self.use_mongodb = use_mongodb
         self.data_loader = HumanevalDataLoader()
 
         self.executor = DockerCodeExecutor()
@@ -48,12 +47,10 @@ class HumanevalExperiment:
         self.agent = HumanevalAgent(LLMClient(api_key=self.api_key), self.reexecutor)
 
         self.mongo_storage = None
-        if self.use_mongodb:
-            try:
-                self.mongo_storage = MongoDBStorage()
-            except Exception as e:
-                print(f"MongoDB unavailable, continuing without persistence: {e}")
-                self.mongo_storage = None
+        try:
+            self.mongo_storage = MongoDBStorage()
+        except Exception as e:
+            raise Exception(f"Could not initialize MongoDB storage: {e}")
 
         self.causal_flow = CausalFlow(api_key=self.api_key, mongo_storage=self.mongo_storage)
 
@@ -105,51 +102,49 @@ class HumanevalExperiment:
 
             if success:
                 stats["passed"] += 1
-                if self.mongo_storage:
-                    try:
-                        self.mongo_storage.add_passing_trace(
-                            run_id=run_id,
-                            trace_data=trace.to_json(),
-                            problem_id=task_id,
-                            problem_statement=prompt,
-                            gold_answer="pass",
-                            final_answer="pass",
-                        )
-                    except Exception as e:
-                        print(f"  Error saving passing trace: {e}")
+                self.mongo_storage.add_passing_trace(
+                    run_id=run_id,
+                    trace_data=trace.to_json(),
+                    problem_id=task_id,
+                    problem_statement=prompt,
+                    gold_answer="pass",
+                    final_answer="pass",
+                )
             else:
                 stats["failed"] += 1
                 print(f"  Tests failed for {task_id}. Running CausalFlow analysis.")
                 try:
-                    analysis = self.causal_flow.analyze_trace(trace)
+                    execution_context = {
+                        "prompt": prompt,
+                        "tests": clean_tests,
+                        "entry_point": entry_point,
+                        "task_id": task_id
+                    }
+                    analysis = self.causal_flow.analyze_trace(
+                        trace,
+                        reexecutor=self.reexecutor,
+                        execution_context=execution_context
+                    )
                     metrics = analysis["metrics"]
                     stats["analyzed"] += 1
 
-                    if self.mongo_storage:
-                        try:
-                            self.mongo_storage.add_failing_trace(
-                                run_id=run_id,
-                                trace_data=trace.to_json(),
-                                problem_id=task_id,
-                                problem_statement=prompt,
-                                gold_answer="pass",
-                                final_answer="fail",
-                                analysis_results=analysis,
-                                metrics=metrics,
-                            )
-                        except Exception as e:
-                            print(f"  Error saving failing trace: {e}")
+                    self.mongo_storage.add_failing_trace(
+                        run_id=run_id,
+                        trace_data=trace.to_json(),
+                        problem_id=task_id,
+                        problem_statement=prompt,
+                        gold_answer="pass",
+                        final_answer="fail",
+                        analysis_results=analysis,
+                        metrics=metrics,
+                    )
                 except Exception as e:
                     print(f"  Error during CausalFlow analysis: {e}")
-
-        if self.mongo_storage and run_id:
-            run_stats = self.mongo_storage.get_run_statistics(run_id)
-            print("\nMongoDB run summary:")
-            print(run_stats)
 
         print("\nExperiment complete.")
         print(f"Passed: {stats['passed']} / {stats['total']}")
         print(f"Failed: {stats['failed']} / {stats['total']}")
+        print(f"Accuracy: {stats['passed'] / stats['total']:.2%}")
 
 
 def main():
@@ -159,8 +154,8 @@ def main():
         print("ERROR: OPENROUTER_SECRET_KEY not found in .env file")
         return
 
-    experiment = HumanevalExperiment(api_key=api_key, use_mongodb=True)
-    experiment.run(num_rows=10)
+    experiment = HumanevalExperiment(api_key=api_key)
+    experiment.run(num_rows=164)
 
 
 if __name__ == "__main__":

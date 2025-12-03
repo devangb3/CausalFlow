@@ -12,7 +12,7 @@ class CausalFlow:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "google/gemini-2.5-flash-lite",
+        model: str = "openai/gpt-4o-mini",
         num_critique_agents: int = 3, #Number of agents for multi-agent critique
         mongo_storage: Optional[MongoDBStorage] = None
     ):
@@ -32,7 +32,9 @@ class CausalFlow:
 
     def analyze_trace(
         self,
-        trace: TraceLogger
+        trace: TraceLogger,
+        reexecutor: Optional[Any] = None,
+        execution_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
 
         self.trace = trace
@@ -54,7 +56,9 @@ class CausalFlow:
         self.counterfactual_repair = CounterfactualRepair(
             trace=self.trace,
             causal_attribution=self.causal_attribution,
-            llm_client=self.llm_client
+            llm_client=self.llm_client,
+            reexecutor=reexecutor,
+            execution_context=execution_context
         )
         repairs = self.counterfactual_repair.generate_repairs(step_ids=causal_steps)
         print(f"Repair complete: {sum(len(r) for r in repairs.values())} repairs proposed")

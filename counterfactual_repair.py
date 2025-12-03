@@ -8,6 +8,7 @@ while still correcting the failure.
 
 import copy
 import json
+import re
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel
 from trace_logger import TraceLogger, Step, StepType
@@ -47,12 +48,16 @@ class CounterfactualRepair:
         self,
         trace: TraceLogger,
         causal_attribution: CausalAttribution,
-        llm_client: LLMClient
+        llm_client: LLMClient,
+        reexecutor: Optional[Any] = None,
+        execution_context: Optional[Dict[str, Any]] = None
     ):
 
         self.trace = trace #The failed execution trace
         self.causal_attribution = causal_attribution #Causal attribution analysis results
         self.llm_client = llm_client
+        self.reexecutor = reexecutor #Optional reexecutor for deterministic repair evaluation
+        self.execution_context = execution_context or {} #Context needed for execution (prompt, tests, entry_point, etc.)
 
         self.repairs: Dict[int, List[Repair]] = {}
 
@@ -102,8 +107,8 @@ class CounterfactualRepair:
                     extract_step_text(repaired_step)
                 )
 
-                # Predict if this repair would succeed
-                success_predicted = self._predict_repair_success(step_id, repaired_step)
+                # Evaluate repair success deterministically if reexecutor is available, otherwise predict
+                success_predicted = self._evaluate_repair_success(step_id, repaired_step)
 
                 repair = Repair(
                     step_id=step_id,
@@ -192,16 +197,80 @@ Step {step.step_id} ({step.step_type.value}):
         elif original_step.step_type == StepType.ENVIRONMENT_ACTION:
             repaired_step.action = repair_result.repaired_text or original_step.action
 
+        elif original_step.step_type == StepType.TOOL_RESPONSE:
+            # For tool responses, repair goes into tool_output
+            if repair_result.repaired_text is not None:
+                repaired_step.tool_output = repair_result.repaired_text
+            # Keep original tool_output if no repair provided
+
         else:
             repaired_step.text = repair_result.repaired_text or original_step.text
 
         return repaired_step
 
-    def _predict_repair_success(self, step_id: int, repaired_step: Step) -> bool:
+    def _evaluate_repair_success(self, step_id: int, repaired_step: Step) -> bool:
 
+        if self.reexecutor is not None:
+            return self._execute_repair(step_id, repaired_step)
+        
+        # Otherwise, use LLM prediction
         return self.causal_attribution._llm_predict_outcome(
             step_id, repaired_step, self.trace.problem_statement
         )
+    
+    def _execute_repair(self, step_id: int, repaired_step: Step) -> bool:
+
+        try:
+            # Get execution context (prompt, tests, etc.)
+            prompt = self.execution_context.get("prompt") or self.trace.problem_statement
+            tests = self.execution_context.get("tests")
+            
+            if not tests or not self.reexecutor:
+                return self.causal_attribution._llm_predict_outcome(
+                    step_id, repaired_step, self.trace.problem_statement
+                )
+            
+            # Find the code generation response step (step 2) which contains the raw_response
+            code_response_step = None
+            for step in self.trace.steps:
+                if step.step_type == StepType.TOOL_RESPONSE:
+                    # Check if this is the response to code generation
+                    prev_step = self.trace.get_step(step.step_id - 1) if step.step_id > 0 else None
+                    if prev_step and prev_step.step_type == StepType.TOOL_CALL and prev_step.tool_name == "llm_code_generation":
+                        code_response_step = step
+                        break
+            
+            if code_response_step and step_id == code_response_step.step_id:
+                repaired_raw_response = repaired_step.tool_output
+                
+                if not repaired_raw_response:
+                    return self.causal_attribution._llm_predict_outcome(
+                        step_id, repaired_step, self.trace.problem_statement
+                    )
+                
+                # Extract code from response (similar to HumanevalAgent._extract_code)
+                code_blocks = re.findall(r"```python(.*?)```", str(repaired_raw_response), flags=re.DOTALL | re.IGNORECASE)
+                if code_blocks:
+                    completion = code_blocks[-1].strip()
+                else:
+                    fallback_blocks = re.findall(r"```(.*?)```", str(repaired_raw_response), flags=re.DOTALL)
+                    if fallback_blocks:
+                        completion = fallback_blocks[-1].strip()
+                    else:
+                        completion = str(repaired_raw_response).strip()
+                
+                success, _, _ = self.reexecutor.run_solution(prompt, completion, tests)
+                return success
+            else:
+                # For non-code steps, fall back to prediction
+                return self.causal_attribution._llm_predict_outcome(
+                    step_id, repaired_step, self.trace.problem_statement
+                )
+        except Exception as e:
+            print(f"Error executing repair for step {step_id}: {e}")
+            return self.causal_attribution._llm_predict_outcome(
+                step_id, repaired_step, self.trace.problem_statement
+            )
 
     def get_best_repair(self, step_id: int) -> Optional[Repair]:
         if step_id not in self.repairs:

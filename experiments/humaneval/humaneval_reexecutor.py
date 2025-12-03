@@ -4,10 +4,6 @@ from .docker_code_executor import DockerCodeExecutor
 
 
 class HumanevalReexecutor:
-    """
-    Builds a runnable script from Humaneval prompt, completion, and tests,
-    then executes it inside Docker to determine pass/fail.
-    """
 
     def __init__(
         self,
