@@ -56,8 +56,8 @@ class CausalAttribution:
         original_step = self.trace.get_step(step_id)
         if not original_step:
             return 0.0
-
-        intervened_step = self._generate_intervention(original_step)
+        end_feedback = "The execution in this run failed. The following logs were generated: " + execution_context.get("logs") or "No end feedback provided"
+        intervened_step = self._generate_intervention(original_step, end_feedback=end_feedback)
 
         if intervened_step is None:
             self.intervention_results[step_id] = {
@@ -66,7 +66,6 @@ class CausalAttribution:
             }
             return 0.0
 
-        # Simulate re-execution with intervention
         new_outcome = self._simulate_reexecution(step_id, intervened_step, execution_context=execution_context)
 
         self.intervention_results[step_id] = {
@@ -76,11 +75,10 @@ class CausalAttribution:
             "flipped_to_success": new_outcome
         }
 
-        # CRS = 1 if outcome flipped to success, 0 otherwise
-        return 1.0 if new_outcome else 0.0
+        return 1.0 if new_outcome else 0.0 # CRS = 1 if outcome flipped to success, 0 otherwise
 
-    def _generate_intervention(self, step: Step) -> Optional[Step]:
-        intervention_prompt = self._create_intervention_prompt(step)
+    def _generate_intervention(self, step: Step, end_feedback: str) -> Optional[Step]:
+        intervention_prompt = self._create_intervention_prompt(step, end_feedback)
 
         try:
             result = self.llm_client.generate_structured(
@@ -112,13 +110,14 @@ class CausalAttribution:
             print(f"Error generating intervention for step {step.step_id}: {e}")
             return None
 
-    def _create_intervention_prompt(self, step: Step) -> str:
+    def _create_intervention_prompt(self, step: Step, end_feedback: str) -> str:
         context = self._get_step_context(step)
 
         prompt = f"""You are analyzing a failed agent execution. The agent produced an incorrect final answer.
 
 Problem Statement: {self.trace.problem_statement or "No problem statement provided"}
 Gold Answer (correct answer): {self.trace.gold_answer or "No gold answer provided"}
+Environment feedback at the point of failure: {end_feedback}
 
 Context from previous steps:
 {context if context else "No earlier context"}
@@ -179,9 +178,7 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
             code_response_step = next((step for step in self.trace.steps if step.step_type == StepType.LLM_RESPONSE), None)
 
             if code_response_step and step_id == code_response_step.step_id:
-                # Extract code from response 
                 prompt = execution_context.get("prompt") or self.trace.problem_statement
-                completion = self.re_executor._extract_code(intervened_step.text)
                 tests = execution_context.get("tests")
                 return self.reexecutor.run_solution(prompt = prompt, completion = intervened_step.text, tests = tests)
         else:

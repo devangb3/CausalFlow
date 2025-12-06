@@ -12,7 +12,7 @@ sys.path.insert(0, str(repo_root))
 from causal_flow import CausalFlow
 from llm_client import LLMClient
 from mongodb_storage import MongoDBStorage
-from trace_logger import TraceLogger
+from trace_logger import TraceLogger, StepType
 from experiments.humaneval.docker_code_executor import DockerCodeExecutor
 from experiments.humaneval.humaneval_agent import HumanevalAgent
 from experiments.humaneval.humaneval_reexecutor import HumanevalReexecutor
@@ -87,11 +87,13 @@ class MBPPExperiment:
                 stats["failed"] += 1
                 print(f"Tests failed for {task_id}. Running CausalFlow analysis")
                 try:
+                    logs = "\n".join([step.tool_output for step in trace.steps if step.step_type == StepType.TOOL_RESPONSE])
                     execution_context = {
                         "prompt": prompt,
                         "tests": clean_tests,
                         "entry_point": entry_point,
                         "task_id": task_id,
+                        "logs": logs
                     }
                     analysis = self.causal_flow.analyze_trace(
                         trace,
