@@ -1,4 +1,3 @@
-import copy
 from typing import Dict, Any, Optional, List
 from trace_logger import TraceLogger, Step
 from causal_graph import CausalGraph
@@ -46,9 +45,10 @@ class CausalFlow:
         self.causal_attribution = CausalAttribution(
             trace=self.trace,
             causal_graph=self.causal_graph,
-            llm_client=self.llm_client
+            llm_client=self.llm_client,
+            re_executor=reexecutor
         )
-        crs_scores = self.causal_attribution.compute_causal_responsibility()
+        crs_scores = self.causal_attribution.compute_causal_responsibility(execution_context=execution_context)
         causal_steps = self.causal_attribution.get_causal_steps()
         print(f"Attribution complete: {len(causal_steps)} causal steps identified")
         

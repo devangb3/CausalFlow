@@ -108,8 +108,6 @@ class MongoDBStorage:
             }
         )
 
-        print(f"Added passing trace for problem {problem_id} to run {run_id}")
-
     def add_failing_trace(
         self,
         run_id: str,

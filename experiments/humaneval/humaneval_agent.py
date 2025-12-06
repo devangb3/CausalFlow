@@ -1,16 +1,11 @@
 import re
-from typing import Any, Dict, Optional, List
+from typing import Optional
 
 from llm_client import LLMClient
 from trace_logger import TraceLogger
 from .humaneval_reexecutor import HumanevalReexecutor
 
-
 class HumanevalAgent:
-    """
-    Generates Python solutions for Humaneval tasks and executes them in Docker.
-    """
-
     def __init__(
         self,
         llm_client: LLMClient,
@@ -18,7 +13,6 @@ class HumanevalAgent:
     ):
         self.llm = llm_client
         self.reexecutor = reexecutor
-        self.trace: Optional[TraceLogger] = None
 
     def solve(
         self,
@@ -26,11 +20,12 @@ class HumanevalAgent:
         prompt: str,
         tests: str,
         entry_point: str,
-    ) -> Dict[str, Any]:
-        self.trace = TraceLogger(problem_statement=prompt)
+    ) -> TraceLogger:
+        trace = TraceLogger(problem_statement=prompt, gold_answer="pass")
+        resolved_entry_point = self.resolve_entry_point(entry_point, tests)
 
-        step_0 = self.trace.log_reasoning(
-            f"Implement {entry_point} for task {task_id}. Run official tests to verify.",
+        step_0 = trace.log_reasoning(
+            f"Implement {resolved_entry_point} for task {task_id}. Run official tests to verify.",
             dependencies=[],
         )
 
@@ -39,13 +34,14 @@ class HumanevalAgent:
 {prompt}
 
 Rules:
-- Preserve the provided signature and docstring.
+- The function name must be exactly `{resolved_entry_point}` so tests can call it.
+- Preserve the provided signature and docstring if present; otherwise define `{resolved_entry_point}` per the prompt.
 - Include any required imports.
 - No extra prints or explanations."""
 
-        step_1 = self.trace.log_tool_call(
+        step_1 = trace.log_tool_call(
             "llm_code_generation",
-            {"task_id": task_id, "entry_point": entry_point},
+            {"task_id": task_id, "entry_point": resolved_entry_point},
             dependencies=[step_0],
         )
 
@@ -54,35 +50,40 @@ Rules:
             system_message="You are a precise Python expert. Respond with code only.",
             temperature=0.2,
         )
-        step_2 = self.trace.log_tool_response(raw_response, dependencies=[step_1])
+        
+        step_2 = trace.log_llm_response(raw_response, dependencies=[step_1])
 
         completion = self._extract_code(raw_response)
 
-        step_3 = self.trace.log_tool_call(
+        step_3 = trace.log_tool_call(
             "docker_code_execution",
-            {"entry_point": entry_point},
+            {"entry_point": resolved_entry_point},
             dependencies=[step_2],
         )
         success, full_code, logs = self.reexecutor.run_solution(prompt, completion, tests)
-        step_4 = self.trace.log_tool_response(
-            {"success": success, "logs": logs},
+        step_4 = trace.log_tool_response(
+            tool_name="docker_code_execution_result",
             dependencies=[step_3],
+            tool_call_result=success,
+            tool_output=logs,
         )
 
         final_answer = "pass" if success else "fail"
-        self.trace.log_final_answer(final_answer, dependencies=[step_4])
-        self.trace.record_outcome(final_answer=final_answer, gold_answer="pass")
+        trace.log_final_answer(final_answer, dependencies=[step_4])
+        trace.record_outcome(final_answer=final_answer, gold_answer="pass")
 
-        return {
-            "task_id": task_id,
-            "entry_point": entry_point,
-            "completion": completion,
-            "full_code": full_code,
-            "logs": logs,
-            "success": success,
-            "trace": self.trace,
-            "error": None,
-        }
+        return trace
+
+    def resolve_entry_point(self, entry_point: str, tests: str) -> str:
+        normalized = entry_point.strip() if entry_point else ""
+        if normalized and normalized != "__init__":
+            return normalized
+
+        inferred = self._first_function_name_from_tests(tests)
+        if inferred:
+            return inferred
+
+        raise ValueError("Unable to infer entry point from tests")
 
     def _extract_code(self, response: str) -> str:
         code_blocks = re.findall(r"```python(.*?)```", response, flags=re.DOTALL | re.IGNORECASE)
@@ -103,3 +104,10 @@ Rules:
 
         test = re.sub(r"\n\s*METADATA\s*=\s*\{[^}]*\}", "", test, flags=re.DOTALL)
         return test
+
+    def _first_function_name_from_tests(self, tests: str) -> Optional[str]:
+        candidates = re.findall(r"([a-zA-Z_][\w]*)\s*\(", tests)
+        for name in candidates:
+            if name not in {"assert", "print", "check"}:
+                return name
+        return None

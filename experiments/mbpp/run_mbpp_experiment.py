@@ -1,9 +1,8 @@
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List
 
-from datasets import load_dataset
 from dotenv import load_dotenv
 from tqdm import tqdm
 
@@ -17,30 +16,13 @@ from trace_logger import TraceLogger
 from experiments.humaneval.docker_code_executor import DockerCodeExecutor
 from experiments.humaneval.humaneval_agent import HumanevalAgent
 from experiments.humaneval.humaneval_reexecutor import HumanevalReexecutor
+from experiments.mbpp.mbpp_loader import MBPPDataLoader
 
 
-class HumanevalDataLoader:
-    def load_data(self, num_rows: Optional[int] = None) -> List[Dict[str, Any]]:
-        dataset = load_dataset("openai_humaneval")["test"]
-        items = []
-        for row in dataset:
-            items.append(
-                {
-                    "task_id": row["task_id"],
-                    "prompt": row["prompt"],
-                    "tests": row["test"],
-                    "entry_point": row["entry_point"],
-                }
-            )
-        if num_rows is not None:
-            items = items[:num_rows]
-        return items
-
-
-class HumanevalExperiment:
+class MBPPExperiment:
     def __init__(self, api_key: str, model: str = "google/gemini-2.5-flash"):
         self.api_key = api_key
-        self.data_loader = HumanevalDataLoader()
+        self.data_loader = MBPPDataLoader(dataset_name="mbpp", split="train")
 
         self.executor = DockerCodeExecutor()
         self.reexecutor = HumanevalReexecutor(self.executor)
@@ -49,23 +31,21 @@ class HumanevalExperiment:
         self.mongo_storage = None
         try:
             self.mongo_storage = MongoDBStorage()
-        except Exception as e:
-            raise Exception(f"Could not initialize MongoDB storage: {e}")
+        except Exception as exc:
+            raise RuntimeError(f"Could not initialize MongoDB storage: {exc}") from exc
 
         self.causal_flow = CausalFlow(api_key=self.api_key, model=model, mongo_storage=self.mongo_storage)
 
-    def run(self, num_rows: int = 5):
+    def run(self, num_rows: int = 50):
         problems = self.data_loader.load_data(num_rows)
-        print(f"Running Humaneval on {len(problems)} tasks")
+        print(f"Running MBPP on {len(problems)} tasks")
+       
+        run_id = self.mongo_storage.create_run(
+            experiment_name="MBPP",
+            num_problems=len(problems),
+        )
 
-        run_id = None
-        if self.mongo_storage:
-            run_id = self.mongo_storage.create_run(
-                experiment_name="Humaneval",
-                num_problems=len(problems),
-            )
-
-        stats = {
+        stats: Dict[str, int | List[Dict[str, object]]] = {
             "total": len(problems),
             "passed": 0,
             "failed": 0,
@@ -73,36 +53,27 @@ class HumanevalExperiment:
             "results": [],
         }
 
-        for idx, task in enumerate(tqdm(problems, desc="Solving tasks")):
+        for idx, task in enumerate(tqdm(problems, desc="Solving MBPP tasks")):
             task_id = task["task_id"]
             prompt = task["prompt"]
             tests = task["tests"]
             entry_point = task["entry_point"]
             clean_tests = self.agent.cleanup_tests(tests)
-            resolved_entry_point = self.agent.resolve_entry_point(entry_point, clean_tests)
-            print(f"\nTask {idx + 1}/{len(problems)}: {task_id} ({resolved_entry_point})")
+            print(f"\nTask {idx + 1}/{len(problems)}: {task_id} ({entry_point})")
             try:
-                result = self.agent.solve(task_id, prompt, clean_tests, resolved_entry_point)
-            except Exception as e:
-                print(f"Error generating solution for {task_id}: {e}")
+                trace: TraceLogger = self.agent.solve(task_id, prompt, clean_tests, entry_point)
+            except Exception as exc:
+                print(f"Error generating solution for {task_id}: {exc}")
                 stats["failed"] += 1
                 continue
-
-            trace: TraceLogger = result["trace"]
-            success = result["success"]
-            logs = result["logs"]
-            resolved_entry_point = result["entry_point"]
-
             stats["results"].append(
                 {
                     "task_id": task_id,
-                    "entry_point": resolved_entry_point,
-                    "success": success,
-                    "logs": logs,
+                    "success": trace.success,
                 }
             )
 
-            if success:
+            if trace.success:
                 stats["passed"] += 1
                 self.mongo_storage.add_passing_trace(
                     run_id=run_id,
@@ -114,18 +85,18 @@ class HumanevalExperiment:
                 )
             else:
                 stats["failed"] += 1
-                print(f"Tests failed for {task_id}. Running CausalFlow analysis.")
+                print(f"Tests failed for {task_id}. Running CausalFlow analysis")
                 try:
                     execution_context = {
                         "prompt": prompt,
                         "tests": clean_tests,
                         "entry_point": entry_point,
-                        "task_id": task_id
+                        "task_id": task_id,
                     }
                     analysis = self.causal_flow.analyze_trace(
                         trace,
                         reexecutor=self.reexecutor,
-                        execution_context=execution_context
+                        execution_context=execution_context,
                     )
                     metrics = analysis["metrics"]
                     stats["analyzed"] += 1
@@ -140,8 +111,8 @@ class HumanevalExperiment:
                         analysis_results=analysis,
                         metrics=metrics,
                     )
-                except Exception as e:
-                    print(f"  Error during CausalFlow analysis: {e}")
+                except Exception as exc:
+                    print(f"  Error during CausalFlow analysis: {exc}")
 
         print("\nExperiment complete.")
         print(f"Passed: {stats['passed']} / {stats['total']}")
@@ -153,12 +124,12 @@ def main():
     load_dotenv()
     api_key = os.getenv("OPENROUTER_SECRET_KEY")
     if not api_key:
-        print("ERROR: OPENROUTER_SECRET_KEY not found in .env file")
-        return
+        raise RuntimeError("OPENROUTER_SECRET_KEY not found in .env file")
 
-    experiment = HumanevalExperiment(api_key=api_key, model="openai/gpt-3.5-turbo")
-    experiment.run(num_rows=164)
+    experiment = MBPPExperiment(api_key=api_key, model="openai/gpt-3.5-turbo")
+    experiment.run(num_rows=50)
 
 
 if __name__ == "__main__":
     main()
+

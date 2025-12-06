@@ -61,9 +61,15 @@ class DockerCodeExecutor:
             )
 
             result = container.wait(timeout=self.timeout)
-            logs = container.logs().decode("utf-8", errors="replace")
+            logs = container.logs(stdout=True, stderr=True).decode("utf-8", errors="replace")
             status_code = result.get("StatusCode", 1)
             success = status_code == 0
+            
+            if not logs.strip() and status_code != 0:
+                try:
+                    logs = container.logs(stdout=True, stderr=True, tail=100).decode("utf-8", errors="replace")
+                except Exception:
+                    logs = f"Container exited with status code {status_code} but no logs captured"
         except ReadTimeout:
             if container:
                 container.kill()
