@@ -130,7 +130,7 @@ def main():
     if not api_key:
         raise RuntimeError("OPENROUTER_SECRET_KEY not found in .env file")
 
-    experiment = MBPPExperiment(api_key=api_key, model="openai/gpt-3.5-turbo")
+    experiment = MBPPExperiment(api_key=api_key, model="openai/chatgpt-4o-latest") #Same model for solving and analyzing
     experiment.run(num_rows=50)
 
 

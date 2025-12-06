@@ -152,7 +152,7 @@ def main():
         print("ERROR: OPENROUTER_SECRET_KEY not found in .env file")
         return
 
-    experiment = HumanevalExperiment(api_key=api_key, model="openai/gpt-3.5-turbo")
+    experiment = HumanevalExperiment(api_key=api_key, model="openai/chatgpt-4o-latest")
     experiment.run(num_rows=164)
 
 
