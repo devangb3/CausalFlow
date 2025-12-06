@@ -13,14 +13,11 @@ from math_reexecutor import MathReexecutor
 class GSM8KAgent:
     def __init__(
         self,
-        llm_client: Optional[LLMClient] = None,
+        llm_client: LLMClient,
         use_structured_outputs: bool = True
     ):
 
-        if use_structured_outputs and llm_client is None:
-            self.llm = LLMClient(model="google/gemini-2.5-flash")
-        else:
-            self.llm = llm_client or LLMClient()
+        self.llm = llm_client
 
         self.use_structured_outputs = use_structured_outputs
         self.reexecutor = MathReexecutor()

@@ -1,4 +1,3 @@
-import copy
 from typing import Dict, Any, Optional, List
 from trace_logger import TraceLogger, Step
 from causal_graph import CausalGraph
@@ -12,7 +11,7 @@ class CausalFlow:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "google/gemini-2.5-flash-lite",
+        model: str = "openai/gpt-4o-mini",
         num_critique_agents: int = 3, #Number of agents for multi-agent critique
         mongo_storage: Optional[MongoDBStorage] = None
     ):
@@ -32,7 +31,9 @@ class CausalFlow:
 
     def analyze_trace(
         self,
-        trace: TraceLogger
+        trace: TraceLogger,
+        reexecutor: Optional[Any] = None,
+        execution_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
 
         self.trace = trace
@@ -44,9 +45,10 @@ class CausalFlow:
         self.causal_attribution = CausalAttribution(
             trace=self.trace,
             causal_graph=self.causal_graph,
-            llm_client=self.llm_client
+            llm_client=self.llm_client,
+            re_executor=reexecutor
         )
-        crs_scores = self.causal_attribution.compute_causal_responsibility()
+        crs_scores = self.causal_attribution.compute_causal_responsibility(execution_context=execution_context)
         causal_steps = self.causal_attribution.get_causal_steps()
         print(f"Attribution complete: {len(causal_steps)} causal steps identified")
         
@@ -54,7 +56,9 @@ class CausalFlow:
         self.counterfactual_repair = CounterfactualRepair(
             trace=self.trace,
             causal_attribution=self.causal_attribution,
-            llm_client=self.llm_client
+            llm_client=self.llm_client,
+            reexecutor=reexecutor,
+            execution_context=execution_context
         )
         repairs = self.counterfactual_repair.generate_repairs(step_ids=causal_steps)
         print(f"Repair complete: {sum(len(r) for r in repairs.values())} repairs proposed")

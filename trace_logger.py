@@ -1,18 +1,14 @@
-"""
-TraceLogger: Captures every internal step of an agent's decision-making process.
-"""
-
 import json
 from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from enum import Enum
 
 
 class StepType(Enum):
-    """Types of steps that can occur during agent execution."""
     REASONING = "reasoning"
     TOOL_CALL = "tool_call"
     TOOL_RESPONSE = "tool_response"
+    LLM_RESPONSE = "llm_response"
     MEMORY_ACCESS = "memory_access"
     ENVIRONMENT_ACTION = "environment_action"
     ENVIRONMENT_OBSERVATION = "environment_observation"
@@ -30,13 +26,13 @@ class Step:
     tool_name: Optional[str] = None
     tool_args: Optional[Dict[str, Any]] = None
     tool_output: Optional[Any] = None
+    tool_call_result: Optional[bool] = None
     memory_key: Optional[str] = None
     memory_value: Optional[Any] = None
     action: Optional[str] = None
     observation: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert step to dictionary representation."""
         result = {
             "step_id": self.step_id,
             "step_type": self.step_type.value,
@@ -44,7 +40,7 @@ class Step:
         }
 
         # Add non-None optional fields
-        for field_name in ["text", "tool_name", "tool_args", "tool_output",
+        for field_name in ["text", "tool_name", "tool_args", "tool_output", "tool_call_result",
                           "memory_key", "memory_value", "action", "observation"]:
             value = getattr(self, field_name)
             if value is not None:
@@ -54,24 +50,12 @@ class Step:
 
 
 class TraceLogger:
-    """
-    Logs every step of an agent's execution to enable causal analysis.
-
-    The trace logger captures:
-    - Reasoning steps (chain-of-thought, planning)
-    - Tool calls and responses
-    - Memory accesses
-    - Environment actions and observations
-    - Final answers
-    - Dependencies between steps
-    """
-
-    def __init__(self, problem_statement: Optional[str] = None):
+    def __init__(self, problem_statement: Optional[str] = None, gold_answer: Optional[str] = None):
         self.steps: List[Step] = []
         self.current_step_id: int = 0
         self.success: Optional[bool] = None
         self.final_answer: Optional[str] = None
-        self.gold_answer: Optional[str] = None
+        self.gold_answer: Optional[str] = gold_answer
         self.problem_statement: Optional[str] = problem_statement
 
     def log_reasoning(self, text: str, dependencies: List[int] = None) -> int:
@@ -86,7 +70,7 @@ class TraceLogger:
         return step.step_id
 
     def log_tool_call(self, tool_name: str, tool_args: Dict[str, Any],
-                      dependencies: List[int] = None) -> int:
+                      dependencies: List[int] = None, logs: Optional[str] = None) -> int:
         step = Step(
             step_id=self.current_step_id,
             step_type=StepType.TOOL_CALL,
@@ -98,11 +82,24 @@ class TraceLogger:
         self.current_step_id += 1
         return step.step_id
 
-    def log_tool_response(self, tool_output: Any, dependencies: List[int]) -> int:
+    def log_tool_response(self, tool_name: str, dependencies: List[int], tool_call_result: bool, tool_output: Optional[str] = None) -> int:
         step = Step(
             step_id=self.current_step_id,
             step_type=StepType.TOOL_RESPONSE,
+            tool_name=tool_name,
+            tool_call_result=tool_call_result,
             tool_output=tool_output,
+            dependencies=dependencies,
+        )
+        self.steps.append(step)
+        self.current_step_id += 1
+        return step.step_id
+        
+    def log_llm_response(self, llm_response: str, dependencies: List[int]) -> int:
+        step = Step(
+            step_id=self.current_step_id,
+            step_type=StepType.LLM_RESPONSE,
+            text=llm_response,
             dependencies=dependencies
         )
         self.steps.append(step)
@@ -206,10 +203,11 @@ class TraceLogger:
                 tool_name=step_data.get("tool_name"),
                 tool_args=step_data.get("tool_args"),
                 tool_output=step_data.get("tool_output"),
+                tool_call_result=step_data.get("tool_call_result"),
                 memory_key=step_data.get("memory_key"),
                 memory_value=step_data.get("memory_value"),
                 action=step_data.get("action"),
-                observation=step_data.get("observation")
+                observation=step_data.get("observation"),
             )
             logger.steps.append(step)
 

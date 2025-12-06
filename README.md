@@ -210,15 +210,3 @@ for run_stat in all_runs_stats:
 # Close connection when done
 mongo.close()
 ```
-
-### Running Without MongoDB
-
-MongoDB is optional. To disable:
-
-```python
-# In experiments
-experiment = GSM8KExperiment(api_key=api_key, use_mongodb=False)
-
-# In code
-flow = CausalFlow(mongo_storage=None)
-```

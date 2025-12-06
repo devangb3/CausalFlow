@@ -1,17 +1,10 @@
-"""
-CausalAttribution: Identifies which steps caused agent failures through interventions.
-Performs causal attribution by intervening on steps and observing outcome changes.
-
-    Uses the do-operator framework: for each step i, we ask "Did modifying step i
-    change the final outcome from failure to success?"
-"""
-
 import copy
+import re
 from typing import Dict, List, Any, Callable, Optional
 from trace_logger import TraceLogger, Step, StepType
 from causal_graph import CausalGraph
 from llm_client import LLMClient
-from utils import summarize_step, format_step_context
+from utils import summarize_step
 
 
 class CausalAttribution:
@@ -21,29 +14,30 @@ class CausalAttribution:
         trace: TraceLogger,
         causal_graph: CausalGraph,
         llm_client: LLMClient,
-        re_executor: Optional[Callable] = None
+        re_executor: Optional[Any] = None
     ):
 
         self.trace = trace #The failed execution trace
         self.causal_graph = causal_graph #The causal graph constructed from the trace
         self.llm_client = llm_client #LLM client for generating interventions
-        self.re_executor = re_executor #Optional function to re-execute agent from a given step
+        self.re_executor = re_executor #Function to re-execute agent from a given step
 
         self.crs_scores: Dict[int, float] = {} #Causal Responsibility Scores for each step
         self.intervention_results: Dict[int, Dict[str, Any]] = {} #Store intervention results
 
     def compute_causal_responsibility(
-        self
+        self,
+        execution_context: Optional[Dict[str, Any]] = None
     ) -> Dict[int, float]:
        
-        step_ids = [step.step_id for step in self.trace.steps]
+        step_ids = [step.step_id for step in self.trace.steps[:-1]] # Exclude the final step
 
         for step_id in step_ids:
-            self.crs_scores[step_id] = self._intervene_on_step(step_id)
+            self.crs_scores[step_id] = self._intervene_on_step(step_id, execution_context=execution_context)
 
         return self.crs_scores
 
-    def _intervene_on_step(self, step_id: int) -> float:
+    def _intervene_on_step(self, step_id: int, execution_context: Optional[Dict[str, Any]] = None) -> float:
         """
         Perform intervention on a single step and compute CRS.
 
@@ -62,9 +56,8 @@ class CausalAttribution:
         original_step = self.trace.get_step(step_id)
         if not original_step:
             return 0.0
-
-        # Generate intervention for this step
-        intervened_step = self._generate_intervention(original_step)
+        end_feedback = "The execution in this run failed. The following logs were generated: " + execution_context.get("logs") or "No end feedback provided"
+        intervened_step = self._generate_intervention(original_step, end_feedback=end_feedback)
 
         if intervened_step is None:
             self.intervention_results[step_id] = {
@@ -73,8 +66,7 @@ class CausalAttribution:
             }
             return 0.0
 
-        # Simulate re-execution with intervention
-        new_outcome = self._simulate_reexecution(step_id, intervened_step)
+        new_outcome = self._reexecute(step_id, intervened_step)
 
         self.intervention_results[step_id] = {
             "original_step": original_step.to_dict(),
@@ -83,14 +75,12 @@ class CausalAttribution:
             "flipped_to_success": new_outcome
         }
 
-        # CRS = 1 if outcome flipped to success, 0 otherwise
-        return 1.0 if new_outcome else 0.0
+        return 1.0 if new_outcome else 0.0 # CRS = 1 if outcome flipped to success, 0 otherwise
 
-    def _generate_intervention(self, step: Step) -> Optional[Step]:
-        intervention_prompt = self._create_intervention_prompt(step)
+    def _generate_intervention(self, step: Step, end_feedback: str) -> Optional[Step]:
+        intervention_prompt = self._create_intervention_prompt(step, end_feedback)
 
         try:
-            # Use structured output to generate corrected version
             result = self.llm_client.generate_structured(
                 intervention_prompt,
                 schema_name="intervention",
@@ -98,7 +88,6 @@ class CausalAttribution:
                 model_name="anthropic/claude-haiku-4.5"
             )
 
-            # Create new step with corrected content
             intervened_step = copy.deepcopy(step)
 
             if step.step_type == StepType.REASONING:
@@ -113,7 +102,7 @@ class CausalAttribution:
                 intervened_step.memory_value = result.corrected_reasoning or step.memory_value
             else:
                 # For other types, update the text field
-                intervened_step.text = result.corrected_reasoning or step.text
+                intervened_step.text = result.corrected_reasoning or result.corrected_text or step.text
 
             return intervened_step
 
@@ -121,16 +110,17 @@ class CausalAttribution:
             print(f"Error generating intervention for step {step.step_id}: {e}")
             return None
 
-    def _create_intervention_prompt(self, step: Step) -> str:
+    def _create_intervention_prompt(self, step: Step, end_feedback: str) -> str:
         context = self._get_step_context(step)
 
         prompt = f"""You are analyzing a failed agent execution. The agent produced an incorrect final answer.
 
-Problem Statement: {self.trace.problem_statement}
-Gold Answer (correct answer): {self.trace.gold_answer}
+Problem Statement: {self.trace.problem_statement or "No problem statement provided"}
+Gold Answer (correct answer): {self.trace.gold_answer or "No gold answer provided"}
+Environment feedback at the point of failure: {end_feedback}
 
 Context from previous steps:
-{context}
+{context if context else "No earlier context"}
 
 Current step (Step {step.step_id}, Type: {step.step_type.value}):
 """
@@ -145,6 +135,15 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
             prompt += f"Tool: {step.tool_name}\n"
             prompt += f"Arguments: {step.tool_args}\n\n"
             prompt += "Provide corrected tool name and arguments. Fill in 'corrected_tool_name' and 'corrected_tool_args' fields."
+
+        elif step.step_type == StepType.LLM_RESPONSE:
+            prompt += f"LLM Response: {step.text}\n\n"
+            prompt += "Provide a corrected version of this LLM response in the 'corrected_reasoning' field."
+
+        elif step.step_type == StepType.TOOL_RESPONSE:
+            prompt += f"Tool Call Result: {step.tool_call_result}\n"
+            prompt += f"Tool Output: {step.tool_output}\n\n"
+            prompt += "Provide a corrected version of this tool response in the 'corrected_reasoning' field."
 
         elif step.step_type == StepType.MEMORY_ACCESS:
             prompt += f"Memory Key: {step.memory_key}\n"
@@ -173,21 +172,15 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
 
         return "\n".join(context_lines)
 
-    def _simulate_reexecution(self, step_id: int, intervened_step: Step) -> bool:
-        """
-        Simulate re-execution of the trace with an intervened step.
+    def _reexecute(self, step_id: int, intervened_step: Step) -> bool:
+        if self.re_executor is None:
+            return self._llm_predict_outcome(step_id, intervened_step, self.trace.problem_statement)
 
-        In a full implementation, this would actually re-run the agent.
-        For now, we use heuristics or LLM to predict the outcome.
-        """
-        if self.re_executor:
-            try:
-                return self.re_executor(step_id, intervened_step)
-            except Exception as e:
-                print(f"Re-execution failed: {e}")
-                return False
+        history = [copy.deepcopy(step) for step in self.trace.steps if step.step_id < step_id]
+        history.append(intervened_step)
 
-        return self._llm_predict_outcome(step_id, intervened_step, self.trace.problem_statement)
+        new_trace = self.re_executor.run_remaining_steps(history)
+        return new_trace.success
 
     def _llm_predict_outcome(self, step_id: int, intervened_step: Step, problem_statement: str) -> bool:
         prompt = f"""You are analyzing an agent execution trace.

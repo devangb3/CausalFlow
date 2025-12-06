@@ -10,6 +10,9 @@ def summarize_step(step: Step) -> str:
         args_str = str(step.tool_args) if step.tool_args else ""
         return f"[Tool Call] {step.tool_name}({args_str})"
 
+    elif step.step_type == StepType.LLM_RESPONSE:
+        return f"[LLM Response] {step.text}"
+
     elif step.step_type == StepType.TOOL_RESPONSE:
         output_str = str(step.tool_output)
         return f"[Tool Response] {output_str}"

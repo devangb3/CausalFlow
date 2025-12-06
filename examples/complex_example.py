@@ -157,18 +157,7 @@ def demo_complex_analysis():
 
         # Run analysis
         print("\n  Analyzing causal graph")
-        results = flow.analyze_trace(trace, skip_repair=False)
-
-        # Generate report
-        report_path = "examples/complex_analysis_report.txt"
-        report = flow.generate_full_report(report_path)
-        print(f"\n  Report saved to: {report_path}")
-
-        # Export results
-        results_path = "examples/complex_analysis_results.json"
-        flow.export_results(results_path)
-        print(f"  Results saved to: {results_path}")
-
+        results = flow.analyze_trace(trace)
         print("ANALYSIS COMPLETE")
        
         if 'attribution' in results and results['attribution']:
