@@ -17,6 +17,7 @@ from experiments.humaneval.docker_code_executor import DockerCodeExecutor
 from experiments.humaneval.humaneval_agent import HumanevalAgent
 from experiments.humaneval.humaneval_reexecutor import HumanevalReexecutor
 from experiments.mbpp.mbpp_loader import MBPPDataLoader
+from reexecution_utils import AgentBranchExecutor
 
 
 class MBPPExperiment:
@@ -27,6 +28,7 @@ class MBPPExperiment:
         self.executor = DockerCodeExecutor()
         self.reexecutor = HumanevalReexecutor(self.executor)
         self.agent = HumanevalAgent(LLMClient(api_key=self.api_key, model=model), self.reexecutor)
+        self.branch_executor = AgentBranchExecutor(self.agent)
 
         self.mongo_storage = None
         try:
@@ -56,9 +58,9 @@ class MBPPExperiment:
         for idx, task in enumerate(tqdm(problems, desc="Solving MBPP tasks")):
             task_id = task["task_id"]
             prompt = task["prompt"]
-            tests = task["tests"]
-            entry_point = task["entry_point"]
-            clean_tests = self.agent.cleanup_tests(tests)
+            clean_tests = self.agent.cleanup_tests(task["tests"])
+            entry_point = self.agent.resolve_entry_point(task["entry_point"], clean_tests)
+            
             print(f"\nTask {idx + 1}/{len(problems)}: {task_id} ({entry_point})")
             try:
                 trace: TraceLogger = self.agent.solve(task_id, prompt, clean_tests, entry_point)
@@ -97,7 +99,7 @@ class MBPPExperiment:
                     }
                     analysis = self.causal_flow.analyze_trace(
                         trace,
-                        reexecutor=self.reexecutor,
+                        reexecutor=self.agent,
                         execution_context=execution_context,
                     )
                     metrics = analysis["metrics"]

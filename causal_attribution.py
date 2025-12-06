@@ -66,7 +66,7 @@ class CausalAttribution:
             }
             return 0.0
 
-        new_outcome = self._simulate_reexecution(step_id, intervened_step, execution_context=execution_context)
+        new_outcome = self._reexecute(step_id, intervened_step)
 
         self.intervention_results[step_id] = {
             "original_step": original_step.to_dict(),
@@ -102,7 +102,7 @@ class CausalAttribution:
                 intervened_step.memory_value = result.corrected_reasoning or step.memory_value
             else:
                 # For other types, update the text field
-                intervened_step.text = result.corrected_reasoning or step.text
+                intervened_step.text = result.corrected_reasoning or result.corrected_text or step.text
 
             return intervened_step
 
@@ -172,17 +172,15 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
 
         return "\n".join(context_lines)
 
-    def _simulate_reexecution(self, step_id: int, intervened_step: Step, execution_context: Optional[Dict[str, Any]] = None) -> bool:
-
-        if self.re_executor:
-            code_response_step = next((step for step in self.trace.steps if step.step_type == StepType.LLM_RESPONSE), None)
-
-            if code_response_step and step_id == code_response_step.step_id:
-                prompt = execution_context.get("prompt") or self.trace.problem_statement
-                tests = execution_context.get("tests")
-                return self.reexecutor.run_solution(prompt = prompt, completion = intervened_step.text, tests = tests)
-        else:
+    def _reexecute(self, step_id: int, intervened_step: Step) -> bool:
+        if self.re_executor is None:
             return self._llm_predict_outcome(step_id, intervened_step, self.trace.problem_statement)
+
+        history = [copy.deepcopy(step) for step in self.trace.steps if step.step_id < step_id]
+        history.append(intervened_step)
+
+        new_trace = self.re_executor.run_remaining_steps(history)
+        return new_trace.success
 
     def _llm_predict_outcome(self, step_id: int, intervened_step: Step, problem_statement: str) -> bool:
         prompt = f"""You are analyzing an agent execution trace.

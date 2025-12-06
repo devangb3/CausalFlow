@@ -198,23 +198,24 @@ Step {step.step_id} ({step.step_type.value}):
         return repaired_step
 
     def _evaluate_repair_success(self, step_id: int, repaired_step: Step, execution_context: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Evaluate repair success by re-executing with the repaired step.
 
-        if self.reexecutor is not None:
-            code_response_step = next((step for step in self.trace.steps if step.step_type == StepType.LLM_RESPONSE), None)
+        If an agent is provided, build a history up to and including the repaired
+        step, then call agent.run_remaining_steps() to continue execution and
+        observe the actual outcome.
+        """
+        if self.reexecutor is None:
+            return self.causal_attribution._llm_predict_outcome(
+                step_id, repaired_step, self.trace.problem_statement
+            )
 
-            if code_response_step and step_id == code_response_step.step_id:
-                prompt = execution_context.get("prompt") or self.trace.problem_statement
-                tests = execution_context.get("tests")
-                return self.reexecutor.run_solution(prompt = prompt, completion = repaired_step.text, tests = tests)
-            else:
-                return self.causal_attribution._llm_predict_outcome(
-                    step_id, repaired_step, self.trace.problem_statement
-                )
-        
-        # Otherwise, use LLM prediction
-        return self.causal_attribution._llm_predict_outcome(
-            step_id, repaired_step, self.trace.problem_statement
-        )
+        # Build history: all steps before step_id + the repaired step
+        history = [copy.deepcopy(step) for step in self.trace.steps if step.step_id < step_id]
+        history.append(repaired_step)
+
+        new_trace = self.reexecutor.run_remaining_steps(history)
+        return new_trace.success
 
     def get_best_repair(self, step_id: int) -> Optional[Repair]:
         if step_id not in self.repairs:

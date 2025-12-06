@@ -13,7 +13,7 @@ sys.path.insert(0, str(repo_root))
 from causal_flow import CausalFlow
 from llm_client import LLMClient
 from mongodb_storage import MongoDBStorage
-from trace_logger import TraceLogger
+from trace_logger import TraceLogger, StepType
 from experiments.humaneval.docker_code_executor import DockerCodeExecutor
 from experiments.humaneval.humaneval_agent import HumanevalAgent
 from experiments.humaneval.humaneval_reexecutor import HumanevalReexecutor
@@ -82,27 +82,21 @@ class HumanevalExperiment:
             resolved_entry_point = self.agent.resolve_entry_point(entry_point, clean_tests)
             print(f"\nTask {idx + 1}/{len(problems)}: {task_id} ({resolved_entry_point})")
             try:
-                result = self.agent.solve(task_id, prompt, clean_tests, resolved_entry_point)
+                trace: TraceLogger = self.agent.solve(task_id, prompt, clean_tests, resolved_entry_point)
             except Exception as e:
                 print(f"Error generating solution for {task_id}: {e}")
                 stats["failed"] += 1
                 continue
 
-            trace: TraceLogger = result["trace"]
-            success = result["success"]
-            logs = result["logs"]
-            resolved_entry_point = result["entry_point"]
-
             stats["results"].append(
                 {
                     "task_id": task_id,
                     "entry_point": resolved_entry_point,
-                    "success": success,
-                    "logs": logs,
+                    "success": trace.success,
                 }
             )
 
-            if success:
+            if trace.success:
                 stats["passed"] += 1
                 self.mongo_storage.add_passing_trace(
                     run_id=run_id,
@@ -116,15 +110,17 @@ class HumanevalExperiment:
                 stats["failed"] += 1
                 print(f"Tests failed for {task_id}. Running CausalFlow analysis.")
                 try:
+                    logs = "\n".join([step.tool_output for step in trace.steps if step.step_type == StepType.TOOL_RESPONSE and step.tool_output])
                     execution_context = {
                         "prompt": prompt,
                         "tests": clean_tests,
                         "entry_point": entry_point,
-                        "task_id": task_id
+                        "task_id": task_id,
+                        "logs": logs
                     }
                     analysis = self.causal_flow.analyze_trace(
                         trace,
-                        reexecutor=self.reexecutor,
+                        reexecutor=self.agent,
                         execution_context=execution_context
                     )
                     metrics = analysis["metrics"]
