@@ -1,11 +1,3 @@
-"""
-CounterfactualRepair: Generates minimal edits to fix agent failures.
-Generates minimal edits to causal steps that would correct failures.
-
-Implements the minimality principle: repairs should be as small as possible
-while still correcting the failure.
-"""
-
 import copy
 import json
 from typing import Dict, List, Any, Optional
@@ -41,18 +33,21 @@ class Repair:
             "success_predicted": self.success_predicted
         }
 
-
 class CounterfactualRepair:
     def __init__(
         self,
         trace: TraceLogger,
         causal_attribution: CausalAttribution,
-        llm_client: LLMClient
+        llm_client: LLMClient,
+        reexecutor: Optional[Any] = None,
+        execution_context: Optional[Dict[str, Any]] = None
     ):
 
         self.trace = trace #The failed execution trace
         self.causal_attribution = causal_attribution #Causal attribution analysis results
         self.llm_client = llm_client
+        self.reexecutor = reexecutor #Optional reexecutor for deterministic repair evaluation
+        self.execution_context = execution_context or {} #Context needed for execution (prompt, tests, entry_point, etc.)
 
         self.repairs: Dict[int, List[Repair]] = {}
 
@@ -90,11 +85,14 @@ class CounterfactualRepair:
                 result = self.llm_client.generate_structured(
                     prompt,
                     schema_name="repair",
-                    system_message="You are an expert at debugging and fixing agent reasoning. Generate minimal, targeted edits. Always respond using the provided schema in JSON format.",
+                    system_message="""You are an expert at debugging and fixing agent failures. 
+                                    Analyze the execution error logs carefully and generate MINIMAL, TARGETED edits that directly address the specific error.
+                                    Make the smallest possible change that fixes the issue.
+                                    Always respond using the provided schema in JSON format.
+                                    """,
                     temperature=0.7
                 )
 
-                # Create repaired step
                 repaired_step = self._apply_repair(original_step, result)
 
                 minimality = calculate_minimality_score(
@@ -102,8 +100,8 @@ class CounterfactualRepair:
                     extract_step_text(repaired_step)
                 )
 
-                # Predict if this repair would succeed
-                success_predicted = self._predict_repair_success(step_id, repaired_step)
+                # Evaluate repair success deterministically if reexecutor is available, otherwise predict
+                success_predicted = self._evaluate_repair_success(step_id, repaired_step, execution_context=self.execution_context)
 
                 repair = Repair(
                     step_id=step_id,
@@ -119,19 +117,29 @@ class CounterfactualRepair:
                 print(f"Error generating repair proposal {i} for step {step_id}: {e}")
                 continue
 
-        # Sort by minimality (prefer more minimal repairs)
         proposals.sort(key=lambda r: r.minimality_score, reverse=True)
 
         return proposals
 
     def _create_repair_prompt(self, step: Step, previous_steps: List[Step]) -> str:
+        execution_logs = self._extract_execution_logs()
         
         prompt = f"""You are debugging a failed agent execution. The agent's final answer was incorrect.
 
 Problem Statement: {self.trace.problem_statement}
 Correct Answer: {self.trace.gold_answer}
 Agent's Incorrect Answer: {self.trace.final_answer}
+"""
 
+        if execution_logs:
+            prompt += f"""
+EXECUTION ERROR LOGS (what went wrong):
+{execution_logs}
+
+Use these error logs to understand the specific failure and create a targeted fix.
+"""
+
+        prompt += f"""
 Recent previous steps:
 {json.dumps([step.to_dict() for step in previous_steps], indent=2)}
 
@@ -142,36 +150,78 @@ Step {step.step_id} ({step.step_type.value}):
 
         if step.step_type == StepType.REASONING:
             prompt += f"Original Reasoning: {step.text}\n\n"
-            prompt += "Provide a MINIMAL correction to this reasoning that would lead to the correct answer.\n"
+            prompt += "Based on the execution error logs above, provide a MINIMAL, TARGETED correction to this reasoning.\n"
+            prompt += "The correction should directly address the specific error shown in the logs.\n"
             prompt += "Fill in 'repaired_text' with the corrected reasoning.\n"
             prompt += "List the specific changes in 'changes_made'.\n"
-            prompt += "Explain why this is minimal in 'minimality_justification'."
+            prompt += "Explain why this is minimal and targeted in 'minimality_justification'."
 
         elif step.step_type == StepType.TOOL_CALL:
             prompt += f"Tool: {step.tool_name}\n"
             prompt += f"Original Arguments: {step.tool_args}\n\n"
-            prompt += "Provide corrected tool name and arguments.\n"
+            prompt += "Based on the execution error logs, provide corrected tool name and arguments that address the failure.\n"
             prompt += "Fill in 'repaired_tool_name' and 'repaired_tool_args'.\n"
             prompt += "List the specific changes in 'changes_made'.\n"
-            prompt += "Explain why this is minimal in 'minimality_justification'."
+            prompt += "Explain why this is minimal and targeted in 'minimality_justification'."
+
+        elif step.step_type == StepType.LLM_RESPONSE:
+            prompt += f"Original LLM Response (code): {step.text}\n\n"
+            prompt += "Based on the execution error logs, provide a MINIMAL, TARGETED code fix.\n"
+            prompt += "The fix should directly address the specific error shown in the logs (e.g., fix the exact line causing the error).\n"
+            prompt += "Fill in 'repaired_text' with the corrected code.\n"
+            prompt += "List the specific changes in 'changes_made'.\n"
+            prompt += "Explain why this is minimal and targeted in 'minimality_justification'."
 
         elif step.step_type == StepType.MEMORY_ACCESS:
             prompt += f"Memory Key: {step.memory_key}\n"
             prompt += f"Original Value: {step.memory_value}\n\n"
-            prompt += "Provide the correct memory value in 'repaired_text'.\n"
+            prompt += "Based on the execution error logs, provide the correct memory value.\n"
+            prompt += "Fill in 'repaired_text' with the corrected value.\n"
+            prompt += "List changes in 'changes_made'.\n"
+            prompt += "Explain minimality in 'minimality_justification'."
+
+        elif step.step_type == StepType.TOOL_RESPONSE:
+            prompt += f"Tool Output: {step.tool_output}\n"
+            prompt += f"Tool Call Result: {step.tool_call_result}\n\n"
+            prompt += "Based on the execution error logs, provide a corrected tool response.\n"
+            prompt += "Fill in 'repaired_text' with the corrected output.\n"
             prompt += "List changes in 'changes_made'.\n"
             prompt += "Explain minimality in 'minimality_justification'."
 
         else:
             content = step.text or step.action or step.observation
             prompt += f"Original Content: {content}\n\n"
-            prompt += "Provide a minimal correction in 'repaired_text'.\n"
+            prompt += "Based on the execution error logs, provide a minimal, targeted correction.\n"
+            prompt += "Fill in 'repaired_text'.\n"
             prompt += "List changes in 'changes_made'.\n"
             prompt += "Explain minimality in 'minimality_justification'."
 
-        prompt += "\n\nRemember: Change ONLY what is absolutely necessary to fix the error."
+        prompt += "\n\nCRITICAL: Make MINIMAL, TARGETED edits that directly address the specific error shown in the execution logs. Change ONLY what is necessary to fix the error."
 
         return prompt
+
+    def _extract_execution_logs(self) -> str:
+        """Extract execution error logs from the trace."""
+        logs_parts: List[str] = []
+        
+        # First, try to get logs from execution_context
+        if self.execution_context and "logs" in self.execution_context:
+            logs = self.execution_context.get("logs")
+            if logs and isinstance(logs, str) and logs.strip():
+                logs_parts.append(logs.strip())
+        
+        # Also extract from TOOL_RESPONSE steps in the trace
+        for step in self.trace.steps:
+            if step.step_type == StepType.TOOL_RESPONSE:
+                if step.tool_output and isinstance(step.tool_output, str):
+                    output = step.tool_output.strip()
+                    if output and output not in logs_parts:
+                        logs_parts.append(output)
+        
+        if not logs_parts:
+            return "No execution logs available."
+        
+        return "\n".join(logs_parts)
 
     def _apply_repair(self, original_step: Step, repair_result: BaseModel) -> Step:
         repaired_step = copy.deepcopy(original_step)
@@ -186,22 +236,46 @@ Step {step.step_id} ({step.step_type.value}):
             if repair_result.repaired_tool_name is not None:
                 repaired_step.tool_name = repair_result.repaired_tool_name
 
+        elif original_step.step_type == StepType.LLM_RESPONSE:
+            if repair_result.repaired_text is not None:
+                repaired_step.text = repair_result.repaired_text
+
         elif original_step.step_type == StepType.MEMORY_ACCESS:
             repaired_step.memory_value = repair_result.repaired_text or original_step.memory_value
 
         elif original_step.step_type == StepType.ENVIRONMENT_ACTION:
             repaired_step.action = repair_result.repaired_text or original_step.action
 
+        elif original_step.step_type == StepType.TOOL_RESPONSE:
+            # For tool responses, repair goes into tool_output
+            if repair_result.repaired_text is not None:
+                repaired_step.tool_output = repair_result.repaired_text
+            # Keep original tool_output if no repair provided
+
         else:
             repaired_step.text = repair_result.repaired_text or original_step.text
 
         return repaired_step
 
-    def _predict_repair_success(self, step_id: int, repaired_step: Step) -> bool:
+    def _evaluate_repair_success(self, step_id: int, repaired_step: Step, execution_context: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Evaluate repair success by re-executing with the repaired step.
 
-        return self.causal_attribution._llm_predict_outcome(
-            step_id, repaired_step, self.trace.problem_statement
-        )
+        If an agent is provided, build a history up to and including the repaired
+        step, then call agent.run_remaining_steps() to continue execution and
+        observe the actual outcome.
+        """
+        if self.reexecutor is None:
+            return self.causal_attribution._llm_predict_outcome(
+                step_id, repaired_step, self.trace.problem_statement
+            )
+
+        # Build history: all steps before step_id + the repaired step
+        history = [copy.deepcopy(step) for step in self.trace.steps if step.step_id < step_id]
+        history.append(repaired_step)
+
+        new_trace = self.reexecutor.run_remaining_steps(history)
+        return new_trace.success
 
     def get_best_repair(self, step_id: int) -> Optional[Repair]:
         if step_id not in self.repairs:

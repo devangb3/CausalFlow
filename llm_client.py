@@ -25,7 +25,6 @@ class LLMClient:
         self.model = model
         self.temperature = temperature
 
-        # Initialize OpenAI client pointed at OpenRouter
         self.client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=self.api_key,

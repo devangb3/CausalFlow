@@ -127,8 +127,6 @@ class MongoDBStorage:
             }
         )
 
-        print(f"Added passing trace for problem {problem_id} to run {run_id}")
-
     def add_failing_trace(
         self,
         run_id: str,
@@ -159,7 +157,7 @@ class MongoDBStorage:
         analysis_results = self._convert_keys_to_strings(analysis_results)
         metrics = self._convert_keys_to_strings(metrics)
         final_repairs = analysis_results.get("counterfactual_repair", {}).get("best_repairs", {})
-        print("Type of final_repairs: ", type(final_repairs))
+        
         trace_document = {
             "problem_id": problem_id,
             "timestamp": datetime.utcnow().isoformat(),
