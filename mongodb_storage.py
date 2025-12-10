@@ -1,23 +1,15 @@
-"""
-MongoDB Storage Module for CausalFlow Traces and Failures
-
-This module provides MongoDB integration for storing experiment runs with traces.
-
-Collections:
-- runs: Stores experiment runs with nested passing and failing traces
-"""
-
 import os
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from datetime import datetime
 from pymongo import MongoClient, ASCENDING, DESCENDING
-from pymongo.errors import ConnectionFailure
 from dotenv import load_dotenv
 import json
+
 class MongoDBStorage:
 
     def __init__(self):
         load_dotenv()
+        db_name = os.getenv('MONGODB_NAME')
         self.mongo_uri = os.getenv('MONGODB_URI')
 
         if not self.mongo_uri:
@@ -25,11 +17,38 @@ class MongoDBStorage:
                 "MONGODB_URI not found. Please set it in .env file or pass it as parameter."
             )
 
-        self.client = MongoClient(self.mongo_uri)
-        self.db = self.client.get_default_database()
+        self.client = self._get_client()
+        db_name = db_name if db_name else "causalflow"
+        self.db = self.client[db_name]
         self.runs = self.db['runs']
         self._setup_indexes()
         self.current_run_id = None
+    
+    def _get_client(self) -> MongoClient:
+        
+        client = None
+        try:
+                kwargs = {}
+                if os.getenv('MONGODB_AWS_ACCESS_KEY'):
+                    kwargs["username"] = os.getenv('MONGODB_AWS_ACCESS_KEY')
+                    kwargs["password"] = os.getenv('MONGODB_AWS_SECRET_KEY')
+                    kwargs["authMechanism"] = "MONGODB-AWS"
+
+                client = MongoClient(
+                    self.mongo_uri,
+                    serverSelectionTimeoutMS=10000,
+                    connectTimeoutMS=10000,
+                    maxPoolSize=100,
+                    minPoolSize=10,
+                    **kwargs
+                )
+                print("MongoDB client created successfully")
+        except Exception as e:
+            print(f"Failed to create MongoDB client: {e}")
+            raise Exception(f"Failed to connect to MongoDB: {e}")
+                
+        return client
+
     def _setup_indexes(self):
         self.runs.create_index([("run_id", ASCENDING)], unique=True)
         self.runs.create_index([("timestamp", DESCENDING)])

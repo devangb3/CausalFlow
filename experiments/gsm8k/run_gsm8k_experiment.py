@@ -163,13 +163,13 @@ class GSM8KExperiment:
 def main():
 
     load_dotenv()
-    api_key = os.getenv("OPENROUTER_SECRET_KEY")
+    api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
-        print("ERROR: OPENROUTER_SECRET_KEY not found in .env file")
+        print("ERROR: OPENROUTER_API_KEY not found in .env file")
         return
 
     experiment = GSM8KExperiment(api_key=api_key)
-    num_rows = 15
+    num_rows = 250
 
     experiment.run_experiment(num_rows=num_rows)
 
