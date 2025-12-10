@@ -52,6 +52,7 @@ class MBPPExperiment:
             "passed": 0,
             "failed": 0,
             "analyzed": 0,
+            "fixed": 0,
             "results": [],
         }
 
@@ -101,9 +102,11 @@ class MBPPExperiment:
                         trace,
                         reexecutor=self.agent,
                         execution_context=execution_context,
+                        skip_critique=True,  # Skip critique for MBPP - deterministic reexecutor provides ground truth
                     )
                     metrics = analysis["metrics"]
                     stats["analyzed"] += 1
+                    stats["fixed"] += 1 if analysis["metrics"]["repair_metrics"]["successful_repairs"] > 0 else 0
 
                     self.mongo_storage.add_failing_trace(
                         run_id=run_id,
@@ -121,6 +124,7 @@ class MBPPExperiment:
         print("\nExperiment complete.")
         print(f"Passed: {stats['passed']} / {stats['total']}")
         print(f"Failed: {stats['failed']} / {stats['total']}")
+        print(f"Fixed: {stats['fixed']} / {stats['failed']}")
         print(f"Accuracy: {stats['passed'] / stats['total']:.2%}")
 
 

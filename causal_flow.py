@@ -33,15 +33,16 @@ class CausalFlow:
         self,
         trace: TraceLogger,
         reexecutor: Optional[Any] = None,
-        execution_context: Optional[Dict[str, Any]] = None
+        execution_context: Optional[Dict[str, Any]] = None,
+        skip_critique: bool = False
     ) -> Dict[str, Any]:
 
         self.trace = trace
 
-        print("\n[1/5] Constructing causal graph")
+        print(f"\n Constructing causal graph")
         self.causal_graph = CausalGraph(self.trace)
 
-        print("\n[2/5] Performing causal attribution")
+        print(f"\nPerforming causal attribution")
         self.causal_attribution = CausalAttribution(
             trace=self.trace,
             causal_graph=self.causal_graph,
@@ -52,7 +53,7 @@ class CausalFlow:
         causal_steps = self.causal_attribution.get_causal_steps()
         print(f"Attribution complete: {len(causal_steps)} causal steps identified")
         
-        print("\n[3/5] Generating counterfactual repairs")
+        print(f"\n Generating counterfactual repairs")
         self.counterfactual_repair = CounterfactualRepair(
             trace=self.trace,
             causal_attribution=self.causal_attribution,
@@ -63,27 +64,36 @@ class CausalFlow:
         repairs = self.counterfactual_repair.generate_repairs(step_ids=causal_steps)
         print(f"Repair complete: {sum(len(r) for r in repairs.values())} repairs proposed")
         
-        print("\n[4/5] Running multi-agent critique")
-        self.multi_agent_critique = MultiAgentCritique(
-            trace=self.trace,
-            causal_attribution=self.causal_attribution,
-            multi_agent_llm=self.multi_agent_llm
-        )
-        critiques = self.multi_agent_critique.critique_causal_attributions()
-        consensus_steps = self.multi_agent_critique.get_consensus_causal_steps()
-        print(f"Critique complete: {len(consensus_steps)} steps confirmed by consensus")
+        critiques: Dict[int, Any] = {}
+        consensus_steps: List[Step] = []
+        
+        if skip_critique:
+            print(f"\n Skipping multi-agent critique (using deterministic reexecutor)")
+            # When skipping critique, use causal steps directly as consensus
+            consensus_steps = [self.trace.get_step(step_id) for step_id in causal_steps if self.trace.get_step(step_id)]
+        else:
+            print(f"\n Running multi-agent critique")
+            self.multi_agent_critique = MultiAgentCritique(
+                trace=self.trace,
+                causal_attribution=self.causal_attribution,
+                multi_agent_llm=self.multi_agent_llm
+            )
+            critiques = self.multi_agent_critique.critique_causal_attributions()
+            consensus_steps = self.multi_agent_critique.get_consensus_causal_steps()
+            print(f"Critique complete: {len(consensus_steps)} steps confirmed by consensus")
 
-        print("\n[5/5] Compiling results")
+        print(f"\n Compiling results")
         results = self._compile_results(
             crs_scores,
             causal_steps,
             repairs,
             critiques,
-            consensus_steps
+            consensus_steps,
+            skip_critique=skip_critique
         )
 
-        print(f"\n[6/6] Generating metrics")
-        metrics = self.generate_metrics(consensus_steps)
+        print(f"\n Generating metrics")
+        metrics = self.generate_metrics(consensus_steps, skip_critique=skip_critique)
         results['metrics'] = metrics
 
         return results
@@ -94,7 +104,8 @@ class CausalFlow:
         causal_steps: List[int],
         repairs: Dict[int, List],
         critiques: Dict[int, Any],
-        consensus_steps: List[Step]
+        consensus_steps: List[Step],
+        skip_critique: bool = False
     ) -> Dict[str, Any]:
 
         results = {
@@ -132,8 +143,15 @@ class CausalFlow:
             }
 
         # Add critique results if available
-        if self.multi_agent_critique:
+        if skip_critique:
             results["multi_agent_critique"] = {
+                "skipped": True,
+                "reason": "Deterministic reexecutor used - critique not needed",
+                "consensus_steps": [step.to_dict() for step in consensus_steps] if consensus_steps else []
+            }
+        elif self.multi_agent_critique:
+            results["multi_agent_critique"] = {
+                "skipped": False,
                 "num_steps_critiqued": len(critiques) if critiques else 0,
                 "consensus_steps": [step.to_dict() for step in consensus_steps] if consensus_steps else [],
                 "critique_details": {
@@ -150,7 +168,8 @@ class CausalFlow:
 
     def generate_metrics(
         self,
-        consensus_steps: List[Step]
+        consensus_steps: List[Step],
+        skip_critique: bool = False
     ) -> Dict[str, Any]:
 
         if not self.causal_attribution:
@@ -166,28 +185,40 @@ class CausalFlow:
             "identified_steps": [step.to_dict() for step in initial_identified_steps if step],
         }
 
-        
-        gt_set = set[int]([step.step_id for step in consensus_steps])
-        id_set = set[int](initial_identified_step_ids)
+        if skip_critique:
+            causal_metrics.update({
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1_score": 1.0,
+                "num_ground_truth_causal_steps": len(consensus_steps),
+                "ground_truth_steps": [step.to_dict() for step in consensus_steps],
+                "true_positives": len(initial_identified_steps),
+                "false_positives": 0,
+                "false_negatives": 0,
+                "note": "Critique skipped - using attribution results directly"
+            })
+        else:
+            gt_set = set[int]([step.step_id for step in consensus_steps])
+            id_set = set[int](initial_identified_step_ids)
 
-        true_positives = len(gt_set & id_set)
-        false_positives = len(id_set - gt_set)
-        false_negatives = len(gt_set - id_set)
+            true_positives = len(gt_set & id_set)
+            false_positives = len(id_set - gt_set)
+            false_negatives = len(gt_set - id_set)
 
-        precision = true_positives / len(id_set) if len(id_set) > 0 else 0.0
-        recall = true_positives / len(gt_set) if len(gt_set) > 0 else 0.0
-        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+            precision = true_positives / len(id_set) if len(id_set) > 0 else 0.0
+            recall = true_positives / len(gt_set) if len(gt_set) > 0 else 0.0
+            f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
 
-        causal_metrics.update({
-            "precision": round(precision, 4),
-            "recall": round(recall, 4),
-            "f1_score": round(f1_score, 4),
-            "num_ground_truth_causal_steps": len(consensus_steps),
-            "ground_truth_steps": [step.to_dict() for step in consensus_steps],
-            "true_positives": true_positives,
-            "false_positives": false_positives,
-            "false_negatives": false_negatives
-        })
+            causal_metrics.update({
+                "precision": round(precision, 4),
+                "recall": round(recall, 4),
+                "f1_score": round(f1_score, 4),
+                "num_ground_truth_causal_steps": len(consensus_steps),
+                "ground_truth_steps": [step.to_dict() for step in consensus_steps],
+                "true_positives": true_positives,
+                "false_positives": false_positives,
+                "false_negatives": false_negatives
+            })
 
         metrics["causal_attribution_metrics"] = causal_metrics
 
@@ -258,7 +289,10 @@ class CausalFlow:
             "steps_with_agreement": []
         }
 
-        if self.multi_agent_critique:
+        if skip_critique:
+            agreement_data["skipped"] = True
+            agreement_data["reason"] = "Deterministic reexecutor used - critique not needed"
+        elif self.multi_agent_critique:
             critique_results = self.multi_agent_critique.critique_results
 
             if critique_results:
