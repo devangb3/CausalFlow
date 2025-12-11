@@ -42,9 +42,7 @@ class MongoDBStorage:
                     minPoolSize=10,
                     **kwargs
                 )
-                print("MongoDB client created successfully")
         except Exception as e:
-            print(f"Failed to create MongoDB client: {e}")
             raise Exception(f"Failed to connect to MongoDB: {e}")
                 
         return client
@@ -87,7 +85,10 @@ class MongoDBStorage:
             "stats": {
                 "total": 0,
                 "passing": 0,
-                "failing": 0
+                "failing": 0,
+                "fixed": 0,
+                "analyzed": 0,
+                "accuracy": 0.0
             }
         }
 
@@ -226,20 +227,44 @@ class MongoDBStorage:
 
         return self.runs.find_one({"run_id": run_id})
 
+    def update_run_statistics(
+        self,
+        run_id: str,
+        fixed: int,
+        analyzed: int,
+        accuracy: float
+    ) -> None:
+
+        update_data: Dict[str, Any] = {
+            "$set": {
+                "stats.fixed": fixed,
+                "stats.analyzed": analyzed,
+                "stats.accuracy": accuracy,
+            }
+        }
+        
+        self.runs.update_one(
+            {"run_id": run_id},
+            update_data
+        )
+
     def get_run_statistics(self, run_id: str) -> Dict[str, Any]:
 
         run = self.get_run(run_id)
         if not run:
             return {}
 
+        stats = run.get("stats", {})
         return {
             "run_id": run_id,
             "experiment_name": run.get("experiment_name"),
             "timestamp": run.get("timestamp"),
-            "total_traces": run["stats"]["total"],
-            "passing_traces": run["stats"]["passing"],
-            "failing_traces": run["stats"]["failing"],
-            "accuracy": run["stats"]["passing"] / run["stats"]["total"] if run["stats"]["total"] > 0 else 0
+            "total_traces": stats.get("total", 0),
+            "passing_traces": stats.get("passing", 0),
+            "failing_traces": stats.get("failing", 0),
+            "fixed": stats.get("fixed", 0),
+            "analyzed": stats.get("analyzed", 0),
+            "accuracy": stats.get("accuracy", stats.get("passing", 0) / stats.get("total", 1) if stats.get("total", 0) > 0 else 0)
         }
 
     def close(self):

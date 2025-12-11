@@ -39,10 +39,10 @@ class CausalFlow:
 
         self.trace = trace
 
-        print(f"\n Constructing causal graph")
+        print(f"Constructing causal graph")
         self.causal_graph = CausalGraph(self.trace)
 
-        print(f"\nPerforming causal attribution")
+        print(f"Performing causal attribution")
         self.causal_attribution = CausalAttribution(
             trace=self.trace,
             causal_graph=self.causal_graph,
@@ -53,7 +53,7 @@ class CausalFlow:
         causal_steps = self.causal_attribution.get_causal_steps()
         print(f"Attribution complete: {len(causal_steps)} causal steps identified")
         
-        print(f"\n Generating counterfactual repairs")
+        print(f"Generating counterfactual repairs")
         self.counterfactual_repair = CounterfactualRepair(
             trace=self.trace,
             causal_attribution=self.causal_attribution,
@@ -68,11 +68,11 @@ class CausalFlow:
         consensus_steps: List[Step] = []
         
         if skip_critique:
-            print(f"\n Skipping multi-agent critique (using deterministic reexecutor)")
+            print(f"Skipping multi-agent critique (using deterministic reexecutor)")
             # When skipping critique, use causal steps directly as consensus
             consensus_steps = [self.trace.get_step(step_id) for step_id in causal_steps if self.trace.get_step(step_id)]
         else:
-            print(f"\n Running multi-agent critique")
+            print(f"Running multi-agent critique")
             self.multi_agent_critique = MultiAgentCritique(
                 trace=self.trace,
                 causal_attribution=self.causal_attribution,
@@ -82,7 +82,7 @@ class CausalFlow:
             consensus_steps = self.multi_agent_critique.get_consensus_causal_steps()
             print(f"Critique complete: {len(consensus_steps)} steps confirmed by consensus")
 
-        print(f"\n Compiling results")
+        print(f"Compiling results")
         results = self._compile_results(
             crs_scores,
             causal_steps,
@@ -92,7 +92,7 @@ class CausalFlow:
             skip_critique=skip_critique
         )
 
-        print(f"\n Generating metrics")
+        print(f"Generating metrics")
         metrics = self.generate_metrics(consensus_steps, skip_critique=skip_critique)
         results['metrics'] = metrics
 

@@ -1,7 +1,7 @@
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, Optional
 
 from dotenv import load_dotenv
 from tqdm import tqdm
@@ -23,7 +23,7 @@ from reexecution_utils import AgentBranchExecutor
 class MBPPExperiment:
     def __init__(self, api_key: str, model: str = "google/gemini-2.5-flash"):
         self.api_key = api_key
-        self.data_loader = MBPPDataLoader(dataset_name="mbpp", split="train")
+        self.data_loader = MBPPDataLoader(dataset_name="mbpp", split="all")
 
         self.executor = DockerCodeExecutor()
         self.reexecutor = HumanevalReexecutor(self.executor)
@@ -38,7 +38,7 @@ class MBPPExperiment:
 
         self.causal_flow = CausalFlow(api_key=self.api_key, model=model, mongo_storage=self.mongo_storage)
 
-    def run(self, num_rows: int = 50):
+    def run(self, num_rows: Optional[int] = None):
         problems = self.data_loader.load_data(num_rows)
         print(f"Running MBPP on {len(problems)} tasks")
        
@@ -47,13 +47,12 @@ class MBPPExperiment:
             num_problems=len(problems),
         )
 
-        stats: Dict[str, int | List[Dict[str, object]]] = {
+        stats: Dict[str, int] = {
             "total": len(problems),
             "passed": 0,
             "failed": 0,
             "analyzed": 0,
             "fixed": 0,
-            "results": [],
         }
 
         for idx, task in enumerate(tqdm(problems, desc="Solving MBPP tasks")):
@@ -69,12 +68,6 @@ class MBPPExperiment:
                 print(f"Error generating solution for {task_id}: {exc}")
                 stats["failed"] += 1
                 continue
-            stats["results"].append(
-                {
-                    "task_id": task_id,
-                    "success": trace.success,
-                }
-            )
 
             if trace.success:
                 stats["passed"] += 1
@@ -121,11 +114,24 @@ class MBPPExperiment:
                 except Exception as exc:
                     print(f"  Error during CausalFlow analysis: {exc}")
 
+        # Update run with final statistics
+        accuracy = stats['passed'] / stats['total'] if stats['total'] > 0 else 0.0
+        try:
+            self.mongo_storage.update_run_statistics(
+                run_id=run_id,
+                fixed=stats['fixed'],
+                analyzed=stats['analyzed'],
+                accuracy=accuracy
+            )
+        except Exception as exc:
+            print(f"Error updating run statistics: {exc}")
+
         print("\nExperiment complete.")
         print(f"Passed: {stats['passed']} / {stats['total']}")
         print(f"Failed: {stats['failed']} / {stats['total']}")
         print(f"Fixed: {stats['fixed']} / {stats['failed']}")
-        print(f"Accuracy: {stats['passed'] / stats['total']:.2%}")
+        print(f"Analyzed: {stats['analyzed']} / {stats['failed']}")
+        print(f"Accuracy: {accuracy:.2%}")
 
 
 def main():
@@ -134,8 +140,8 @@ def main():
     if not api_key:
         raise RuntimeError("OPENROUTER_SECRET_KEY not found in .env file")
 
-    experiment = MBPPExperiment(api_key=api_key, model="openai/chatgpt-4o-latest") #Same model for solving and analyzing
-    experiment.run(num_rows=50)
+    experiment = MBPPExperiment(api_key=api_key, model="openai/gpt-5-chat") #Same model for solving and analyzing
+    experiment.run(num_rows=None)
 
 
 if __name__ == "__main__":

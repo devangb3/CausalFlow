@@ -1,7 +1,7 @@
 import re
 from typing import Dict, List, Optional, Sequence, TypedDict
 
-from datasets import load_dataset
+from datasets import load_dataset, concatenate_datasets
 
 
 class MBPPTask(TypedDict):
@@ -12,12 +12,25 @@ class MBPPTask(TypedDict):
 
 
 class MBPPDataLoader:
-    def __init__(self, dataset_name: str = "mbpp", split: str = "train"):
+    def __init__(self, dataset_name: str = "mbpp", split: Optional[str] = "train"):
         self.dataset_name = dataset_name
         self.split = split
 
-    def load_data(self, num_rows: int = 50) -> List[MBPPTask]:
-        dataset = load_dataset(self.dataset_name)[self.split]
+    def load_data(self, num_rows: Optional[int] = None) -> List[MBPPTask]:
+        dataset_dict = load_dataset(self.dataset_name)
+        
+        if self.split == "all":
+            splits_to_merge = ["train", "test", "validation", "prompt"]
+            available_splits = [split_name for split_name in splits_to_merge if split_name in dataset_dict]
+            if not available_splits:
+                raise ValueError(f"No available splits found in dataset. Available splits: {list(dataset_dict.keys())}")
+            datasets = [dataset_dict[split_name] for split_name in available_splits]
+            dataset = concatenate_datasets(datasets)
+        else:
+            if self.split not in dataset_dict:
+                raise ValueError(f"Split '{self.split}' not found in dataset. Available splits: {list(dataset_dict.keys())}")
+            dataset = dataset_dict[self.split]
+        
         tasks: List[MBPPTask] = []
 
         for row in dataset:
@@ -35,7 +48,7 @@ class MBPPDataLoader:
                 }
             )
 
-            if len(tasks) >= num_rows:
+            if num_rows is not None and len(tasks) >= num_rows:
                 break
 
         return tasks
