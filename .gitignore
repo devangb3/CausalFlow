@@ -29,3 +29,4 @@ causalflow_report.txt
 causalflow_results.json
 agent_trace.json
 agent_analysis.txt
+.cache/

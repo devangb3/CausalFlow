@@ -147,6 +147,50 @@ class GSM8KSolution(BaseModel):
     )
 
 
+class BrowseCompAgentStep(BaseModel):
+    """Schema for a single BrowseComp agent decision step.
+    
+    The agent must emit one structured step per turn, choosing an action
+    to progress toward answering the question.
+    """
+    
+    action_type: str = Field(
+        ...,
+        pattern="^(search|open_url|extract|answer)$",
+        description="Type of action: 'search' to query the web, 'open_url' to fetch a page, 'extract' to note facts from current context, 'answer' to provide the final answer"
+    )
+    query: Optional[str] = Field(
+        None,
+        description="Search query string (required when action_type is 'search')"
+    )
+    url: Optional[str] = Field(
+        None,
+        description="URL to fetch (required when action_type is 'open_url')"
+    )
+    note: str = Field(
+        ...,
+        description="Brief rationale explaining why this action is being taken"
+    )
+    extracted_facts: List[str] = Field(
+        default_factory=list,
+        description="List of facts extracted/noted from current context (especially useful for 'extract' action)"
+    )
+    exact_answer: Optional[str] = Field(
+        None,
+        description="The final exact answer (required when action_type is 'answer')"
+    )
+    confidence: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=100.0,
+        description="Confidence percentage (0-100) in the answer (used when action_type is 'answer')"
+    )
+    explanation: Optional[str] = Field(
+        None,
+        description="Explanation for the final answer (used when action_type is 'answer')"
+    )
+
+
 class LLMSchemas:
     """Collection of schema utilities for structured LLM outputs."""
 
@@ -157,6 +201,7 @@ class LLMSchemas:
         "critique": CritiqueOutput,
         "tool_args": ToolArgsOutput,
         "gsm8k_solution": GSM8KSolution,
+        "browsecomp_step": BrowseCompAgentStep,
     }
 
     @staticmethod
@@ -185,6 +230,7 @@ class LLMSchemas:
 
         # Simplify schema for Google Gemini compatibility
         LLMSchemas._simplify_schema(json_schema)
+        LLMSchemas._ensure_required_fields(json_schema)
 
         # Remove metadata that might interfere
         json_schema.pop("title", None)
@@ -213,22 +259,34 @@ class LLMSchemas:
             # Handle anyOf for optional fields (common pattern: anyOf with null)
             if "anyOf" in schema:
                 any_of = schema.pop("anyOf")
-                # Find the non-null type
-                for option in any_of:
-                    if option.get("type") != "null":
-                        # Use the non-null type and mark as nullable
-                        schema.update(option)
-                        # Keep default if it exists
-                        break
+                non_null_options = [opt for opt in any_of if opt.get("type") != "null"]
+                has_null = any(opt.get("type") == "null" for opt in any_of)
+                if non_null_options:
+                    option = non_null_options[0]
+                    schema.update(option)
+                    if has_null and "type" in option:
+                        base_type = option["type"]
+                        if isinstance(base_type, list):
+                            type_list = list(dict.fromkeys(base_type + ["null"]))
+                        else:
+                            type_list = [base_type, "null"]
+                        schema["type"] = type_list
 
             # Handle oneOf similarly
             if "oneOf" in schema:
                 one_of = schema.pop("oneOf")
-                # Just use the first non-null option
-                for option in one_of:
-                    if option.get("type") != "null":
-                        schema.update(option)
-                        break
+                non_null_options = [opt for opt in one_of if opt.get("type") != "null"]
+                has_null = any(opt.get("type") == "null" for opt in one_of)
+                if non_null_options:
+                    option = non_null_options[0]
+                    schema.update(option)
+                    if has_null and "type" in option:
+                        base_type = option["type"]
+                        if isinstance(base_type, list):
+                            type_list = list(dict.fromkeys(base_type + ["null"]))
+                        else:
+                            type_list = [base_type, "null"]
+                        schema["type"] = type_list
 
             if schema.get("type") == "object":
                 if "properties" in schema:
@@ -245,6 +303,25 @@ class LLMSchemas:
                     for item in value:
                         if isinstance(item, dict):
                             LLMSchemas._simplify_schema(item)
+
+    @staticmethod
+    def _ensure_required_fields(schema: Dict[str, Any]) -> None:
+
+        if not isinstance(schema, dict):
+            return
+
+        if schema.get("type") == "object":
+            properties = schema.get("properties")
+            if isinstance(properties, dict):
+                schema["required"] = list(properties.keys())
+
+        for value in list(schema.values()):
+            if isinstance(value, dict):
+                LLMSchemas._ensure_required_fields(value)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        LLMSchemas._ensure_required_fields(item)
 
     @staticmethod
     def _inline_refs(schema: Dict[str, Any], defs: Dict[str, Any]) -> None:

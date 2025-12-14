@@ -14,7 +14,7 @@ class LLMClient:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "google/gemini-2.5-flash-lite",
+        model: str = "google/gemini-2.5-flash",
         temperature: float = 0.7
     ):
 
@@ -62,9 +62,9 @@ class LLMClient:
         schema_name: str,
         system_message: Optional[str] = None,
         temperature: Optional[float] = None,
-        model_name: Optional[str] = "google/gemini-2.5-flash"
+        model_name: Optional[str] = None
     ) -> BaseModel:
-
+        llm_model_name = model_name or self.model
         messages = []
 
         if system_message:
@@ -81,10 +81,9 @@ class LLMClient:
         response_format = LLMSchemas.get_response_format(schema_name)
 
         response = self.client.chat.completions.create(
-            model=model_name,
+            model=llm_model_name,
             messages=messages,
             temperature=temperature or self.temperature,
-            max_tokens=2000,
             response_format=response_format
         )
 
@@ -125,11 +124,9 @@ class MultiAgentLLM:
     ):
         self.num_agents = num_agents
 
-        # Default models if not specified
         if models is None:
-            models = ["google/gemini-2.5-flash-lite"] * num_agents
+            models = ["google/gemini-2.5-flash"] * num_agents
         elif len(models) < num_agents:
-            # Extend with the first model if not enough specified
             models = models + [models[0]] * (num_agents - len(models))
 
         self.agents = [
