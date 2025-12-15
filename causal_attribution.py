@@ -1,9 +1,11 @@
 import copy
+import json
 import re
-from typing import Dict, List, Any, Callable, Optional
+from typing import Dict, List, Any, Optional, Set
 from trace_logger import TraceLogger, Step, StepType
 from causal_graph import CausalGraph
 from llm_client import LLMClient
+from text_processor import convert_text_to_jsonl
 from utils import summarize_step
 
 
@@ -27,17 +29,25 @@ class CausalAttribution:
 
     def compute_causal_responsibility(
         self,
-        execution_context: Optional[Dict[str, Any]] = None
+        execution_context: Optional[Dict[str, Any]] = None,
+        intervene_step_types: Optional[Set[StepType]] = None,
     ) -> Dict[int, float]:
-       
-        step_ids = [step.step_id for step in self.trace.steps[:-1]] # Exclude the final step
-
-        for step_id in step_ids:
-            self.crs_scores[step_id] = self._intervene_on_step(step_id, execution_context=execution_context)
+        steps_to_check = self.trace.steps[:-1]  # Exclude the final step
+        
+        for step in steps_to_check:
+            if intervene_step_types is not None and step.step_type not in intervene_step_types:
+                self.crs_scores[step.step_id] = 0.0
+                self.intervention_results[step.step_id] = {
+                    "success": False,
+                    "reason": f"Skipped: step type {step.step_type.value} not in intervene_step_types"
+                }
+                continue
+            
+            self.crs_scores[step.step_id] = self._intervene_on_step(step, execution_context=execution_context)
 
         return self.crs_scores
 
-    def _intervene_on_step(self, step_id: int, execution_context: Optional[Dict[str, Any]] = None) -> float:
+    def _intervene_on_step(self, step: Step, execution_context: Optional[Dict[str, Any]] = None) -> float:
         """
         Perform intervention on a single step and compute CRS.
 
@@ -53,23 +63,19 @@ class CausalAttribution:
         Returns:
             CRS score (1.0 if intervention flipped outcome to success, 0.0 otherwise)
         """
-        original_step = self.trace.get_step(step_id)
-        if not original_step:
-            return 0.0
         end_feedback = "The execution in this run failed. The following logs were generated: " + execution_context.get("logs") or "No end feedback provided"
-        intervened_step = self._generate_intervention(original_step, end_feedback=end_feedback)
+        intervened_step = self._generate_intervention(step, end_feedback=end_feedback)
 
         if intervened_step is None:
-            self.intervention_results[step_id] = {
+            self.intervention_results[step.step_id] = {
                 "success": False,
                 "reason": "Could not generate intervention"
             }
             return 0.0
+        new_outcome = self._reexecute(step.step_id, intervened_step)
 
-        new_outcome = self._reexecute(step_id, intervened_step)
-
-        self.intervention_results[step_id] = {
-            "original_step": original_step.to_dict(),
+        self.intervention_results[step.step_id] = {
+            "original_step": step.to_dict(),
             "intervened_step": intervened_step.to_dict(),
             "new_outcome": new_outcome,
             "flipped_to_success": new_outcome
@@ -93,9 +99,12 @@ class CausalAttribution:
             if step.step_type == StepType.REASONING:
                 intervened_step.text = result.corrected_reasoning or step.text
             elif step.step_type == StepType.TOOL_CALL:
-                # Use structured tool args directly
-                if result.corrected_tool_args is not None:
-                    intervened_step.tool_args = result.corrected_tool_args
+                # Parse tool args from JSON string
+                if result.corrected_tool_args_json is not None:
+                    parsed = convert_text_to_jsonl(result.corrected_tool_args_json)
+                    if not parsed:
+                        raise ValueError(f"Failed to parse corrected_tool_args_json: {result.corrected_tool_args_json}")
+                    intervened_step.tool_args = parsed[0]
                 if result.corrected_tool_name is not None:
                     intervened_step.tool_name = result.corrected_tool_name
             elif step.step_type == StepType.MEMORY_ACCESS:
@@ -133,8 +142,8 @@ Current step (Step {step.step_id}, Type: {step.step_type.value}):
 
         elif step.step_type == StepType.TOOL_CALL:
             prompt += f"Tool: {step.tool_name}\n"
-            prompt += f"Arguments: {step.tool_args}\n\n"
-            prompt += "Provide corrected tool name and arguments. Fill in 'corrected_tool_name' and 'corrected_tool_args' fields."
+            prompt += f"Arguments: {json.dumps(step.tool_args)}\n\n"
+            prompt += "Provide corrected tool name and arguments. Fill in 'corrected_tool_name' and 'corrected_tool_args_json' (as a valid JSON string, e.g. '{\"key\": \"value\"}')."
 
         elif step.step_type == StepType.LLM_RESPONSE:
             prompt += f"LLM Response: {step.text}\n\n"
@@ -211,7 +220,7 @@ Descendants of this step (affected by the intervention):
                 prompt,
                 schema_name="outcome_prediction",
                 temperature=0.0,
-                model_name="google/gemini-2.5-flash"
+                model_name="openai/gpt-5.2"
             )
             return result.would_succeed
         except Exception as e:

@@ -2,17 +2,15 @@ import sys
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
 repo_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(repo_root))
 
 from llm_client import LLMClient
 from trace_logger import TraceLogger, Step, StepType
-from schemas import BrowseCompAgentStep
 from .web_env import WebEnvironment, SearchResponse, FetchResult
-from .browsecomp_eval import QUERY_TEMPLATE
-
+from .browsecomp_eval import grade_response
 
 @dataclass
 class BrowseCompExecutionContext:
@@ -86,10 +84,99 @@ Important guidelines:
         if last_step.step_type == StepType.FINAL_ANSWER:
             return trace
         
-        return self._run(trace, context)
+        gathered_facts, search_history, page_summaries = self._reconstruct_state_from_history(history)
+        
+        if last_step.step_type == StepType.TOOL_CALL:
+            gathered_facts, search_history, page_summaries = self._execute_pending_tool_call(
+                trace=trace,
+                tool_call_step=last_step,
+                gathered_facts=gathered_facts,
+                search_history=search_history,
+                page_summaries=page_summaries,
+            )
+        
+        new_trace = self._run_with_state(
+            trace=trace,
+            context=context,
+            gathered_facts=gathered_facts,
+            search_history=search_history,
+            page_summaries=page_summaries,
+        )
+        new_trace.success = grade_response(context.gold_answer, new_trace.final_answer, self.llm)
+        return new_trace
+
+    def _execute_pending_tool_call(
+        self,
+        trace: TraceLogger,
+        tool_call_step: Step,
+        gathered_facts: List[str],
+        search_history: List[str],
+        page_summaries: List[str],
+    ) -> Tuple[List[str], List[str], List[str]]:
+
+        tool_name = tool_call_step.tool_name
+        tool_args = tool_call_step.tool_args or {}
+        
+        if tool_name == "web_search":
+            query = tool_args.get("query", "")
+            try:
+                search_result = self.web_env.web_search(query)
+                result_summary = self._format_search_results(search_result)
+                tool_success = True
+            except Exception as e:
+                result_summary = f"Search failed: {e}"
+                tool_success = False
+            
+            tool_response_step = trace.log_tool_response(
+                tool_name="web_search",
+                dependencies=[tool_call_step.step_id],
+                tool_call_result=tool_success,
+                tool_output=result_summary,
+            )
+            
+            search_history.append(f"Searched: {query}")
+            if tool_success:
+                page_summaries.append(f"Search results for '{query}':\n{result_summary}")
+            
+            self._attach_state_snapshot(
+                trace, tool_response_step,
+                gathered_facts, search_history, page_summaries,
+            )
+            
+        elif tool_name == "web_fetch":
+            url = tool_args.get("url", "")
+            try:
+                fetch_result = self.web_env.web_fetch(url)
+                if fetch_result.error:
+                    result_summary = f"Fetch error: {fetch_result.error}"
+                    tool_success = False
+                else:
+                    result_summary = self._format_fetch_result(fetch_result)
+                    tool_success = True
+            except Exception as e:
+                result_summary = f"Fetch failed: {e}"
+                tool_success = False
+            
+            tool_response_step = trace.log_tool_response(
+                tool_name="web_fetch",
+                dependencies=[tool_call_step.step_id],
+                tool_call_result=tool_success,
+                tool_output=result_summary,
+            )
+            
+            if tool_success:
+                page_summaries.append(f"Page content from {url}:\n{result_summary}")
+            
+            self._attach_state_snapshot(
+                trace, tool_response_step,
+                gathered_facts, search_history, page_summaries,
+            )
+        else:
+            raise ValueError(f"Unknown tool for execution: {tool_name}")
+        
+        return gathered_facts, search_history, page_summaries
     
     def _ensure_context(self) -> BrowseCompExecutionContext:
-        """Ensure we have an execution context."""
         if self._current_context is None:
             raise RuntimeError(
                 "No execution context available. Run solve(...) before branching."
@@ -116,7 +203,6 @@ Important guidelines:
         return trace
     
     def _validate_history(self, history: List[Step]) -> List[Step]:
-        """Validate and clone history."""
         cloned_history = deepcopy(history)
         for idx, step in enumerate(cloned_history):
             if step.step_id != idx:
@@ -130,16 +216,63 @@ Important guidelines:
                 )
         return cloned_history
     
+    def _attach_state_snapshot(
+        self,
+        trace: TraceLogger,
+        step_id: int,
+        gathered_facts: List[str],
+        search_history: List[str],
+        page_summaries: List[str],
+    ) -> None:
+        step = trace.get_step(step_id)
+        if step is None:
+            raise ValueError(f"Step {step_id} not found in trace")
+        step.state_snapshot = {
+            "gathered_facts": list(gathered_facts),
+            "search_history": list(search_history),
+            "page_summaries": list(page_summaries),
+        }
+    
+    def _reconstruct_state_from_history(
+        self,
+        history: List[Step],
+    ) -> Tuple[List[str], List[str], List[str]]:
+        if not history:
+            return [], [], []
+        
+        last_step = history[-1]
+        if last_step.state_snapshot is None:
+            return [], [], []
+        
+        snapshot = last_step.state_snapshot
+        return (
+            list(snapshot["gathered_facts"]),
+            list(snapshot["search_history"]),
+            list(snapshot["page_summaries"]),
+        )
+    
     def _run(
         self,
         trace: TraceLogger,
         context: BrowseCompExecutionContext,
     ) -> TraceLogger:
+        return self._run_with_state(
+            trace=trace,
+            context=context,
+            gathered_facts=[],
+            search_history=[],
+            page_summaries=[],
+        )
+    
+    def _run_with_state(
+        self,
+        trace: TraceLogger,
+        context: BrowseCompExecutionContext,
+        gathered_facts: List[str],
+        search_history: List[str],
+        page_summaries: List[str],
+    ) -> TraceLogger:
 
-        gathered_facts: List[str] = []
-        search_history: List[str] = []
-        page_summaries: List[str] = []
-        
         dependencies = [trace.steps[-1].step_id] if trace.steps else []
         step_count = len(trace.steps)
         
@@ -163,7 +296,7 @@ Important guidelines:
                     f"Error getting next action: {e}. Forcing answer.",
                     dependencies=dependencies,
                 )
-                return self._force_answer(trace, context, gathered_facts, search_history=search_history,page_summaries=page_summaries, dependencies=dependencies)
+                return self._force_answer(trace, context, gathered_facts, search_history=search_history, page_summaries=page_summaries, dependencies=dependencies)
             
             action_type = agent_step.action_type
             
@@ -176,6 +309,11 @@ Important guidelines:
                     tool_name="web_search",
                     tool_args={"query": query},
                     dependencies=dependencies,
+                )
+                
+                self._attach_state_snapshot(
+                    trace, tool_call_step,
+                    gathered_facts, search_history, page_summaries,
                 )
                 
                 try:
@@ -197,6 +335,11 @@ Important guidelines:
                 if tool_success:
                     page_summaries.append(f"Search results for '{query}':\n{result_summary}")
                 
+                self._attach_state_snapshot(
+                    trace, tool_response_step,
+                    gathered_facts, search_history, page_summaries,
+                )
+                
                 dependencies = [tool_response_step]
                 
             elif action_type == "open_url":
@@ -208,6 +351,11 @@ Important guidelines:
                     tool_name="web_fetch",
                     tool_args={"url": url},
                     dependencies=dependencies,
+                )
+                
+                self._attach_state_snapshot(
+                    trace, tool_call_step,
+                    gathered_facts, search_history, page_summaries,
                 )
                 
                 try:
@@ -232,6 +380,11 @@ Important guidelines:
                 if tool_success:
                     page_summaries.append(f"Page content from {url}:\n{result_summary}")
                 
+                self._attach_state_snapshot(
+                    trace, tool_response_step,
+                    gathered_facts, search_history, page_summaries,
+                )
+                
                 dependencies = [tool_response_step]
                 
             elif action_type == "extract":
@@ -244,6 +397,12 @@ Important guidelines:
                 )
                 
                 gathered_facts.extend(facts)
+                
+                self._attach_state_snapshot(
+                    trace, reasoning_step,
+                    gathered_facts, search_history, page_summaries,
+                )
+                
                 dependencies = [reasoning_step]
                 
             elif action_type == "answer":
@@ -260,7 +419,13 @@ Important guidelines:
                     confidence=confidence,
                 )
                 
-                trace.log_final_answer(formatted_response, dependencies=dependencies)
+                final_step_id = trace.log_final_answer(formatted_response, dependencies=dependencies)
+                
+                self._attach_state_snapshot(
+                    trace, final_step_id,
+                    gathered_facts, search_history, page_summaries,
+                )
+                
                 trace.record_outcome(
                     final_answer=exact_answer,
                     gold_answer=context.gold_answer,
@@ -273,7 +438,7 @@ Important guidelines:
             
             step_count = len(trace.steps)
         
-        return self._force_answer(trace, context, gathered_facts, search_history=search_history,page_summaries=page_summaries, dependencies=dependencies)
+        return self._force_answer(trace, context, gathered_facts, search_history=search_history, page_summaries=page_summaries, dependencies=dependencies)
     
     def _force_answer(
         self,
@@ -323,7 +488,13 @@ You MUST provide an answer now, even if uncertain. Use action_type: "answer" wit
             confidence=confidence,
         )
         
-        trace.log_final_answer(formatted_response, dependencies=dependencies)
+        final_step_id = trace.log_final_answer(formatted_response, dependencies=dependencies)
+        
+        self._attach_state_snapshot(
+            trace, final_step_id,
+            gathered_facts, search_history, page_summaries,
+        )
+        
         trace.record_outcome(
             final_answer=exact_answer,
             gold_answer=context.gold_answer,
@@ -339,7 +510,6 @@ You MUST provide an answer now, even if uncertain. Use action_type: "answer" wit
         page_summaries: List[str],
         steps_remaining: int,
     ) -> str:
-        """Build the prompt for the next action."""
         prompt_parts = [
             f"Question to answer: {context.question}",
             "",
@@ -386,7 +556,6 @@ You MUST provide an answer now, even if uncertain. Use action_type: "answer" wit
         return "\n".join(prompt_parts)
     
     def _format_search_results(self, search_response: SearchResponse) -> str:
-        """Format search results for display."""
         lines = [f"Search results for: {search_response.query}"]
         for result in search_response.results[:10]:
             lines.append(f"\n{result.rank}. {result.title}")
@@ -395,7 +564,6 @@ You MUST provide an answer now, even if uncertain. Use action_type: "answer" wit
         return "\n".join(lines)
     
     def _format_fetch_result(self, fetch_result: FetchResult) -> str:
-        """Format fetch result for display."""
         lines = [
             f"Page: {fetch_result.title or fetch_result.url}",
             f"URL: {fetch_result.final_url}",
@@ -412,13 +580,11 @@ You MUST provide an answer now, even if uncertain. Use action_type: "answer" wit
         exact_answer: str,
         confidence: float,
     ) -> str:
-        """Format the final response in BrowseComp expected format."""
         return f"""Explanation: {explanation}
 Exact Answer: {exact_answer}
 Confidence: {confidence:.0f}%"""
     
     def get_execution_context_dict(self) -> Dict[str, Any]:
-        """Get the current execution context as a dict for CausalFlow."""
         if self._current_context is None:
             return {}
         

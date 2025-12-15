@@ -1,9 +1,3 @@
-"""
-BrowseComp: A Simple Yet Challenging Benchmark for Browsing Agents
-Authors: Jason Wei, Zhiqing Sun, Spencer Papay, Scott McKinney, Jeffrey Han, Isa Fulford, Hyung Won Chung, Alex Tachard Passos, William Fedus, Mia Glaese
-https://openai.com/index/browsecomp/
-""" 
-
 import base64
 import hashlib
 import random
@@ -12,7 +6,6 @@ import pandas
 from . import common
 from .types import Eval, EvalResult, SamplerBase, SingleEvalResult
 
-# from: https://github.com/centerforaisafety/hle/blob/7b6be5aad6f9b43af3857de7867f3b52f6e4acb3/hle_eval/run_model_predictions.py#L11
 QUERY_TEMPLATE = """
 {Question}
 
@@ -22,7 +15,6 @@ Exact Answer: {{your succinct, final answer}}
 Confidence: {{your confidence score between 0% and 100% for your answer}}
 """.strip()
 
-# from: https://github.com/centerforaisafety/hle/blob/7b6be5aad6f9b43af3857de7867f3b52f6e4acb3/hle_eval/run_judge_results.py#L16-L33
 GRADER_TEMPLATE = """
 Judge whether the following [response] to [question] is correct or not based on the precise and unambiguous [correct_answer] below.
 
@@ -43,9 +35,6 @@ correct: Answer 'yes' if extracted_final_answer matches the [correct_answer] giv
 
 confidence: The extracted confidence score between 0|\%| and 100|\%| from [response]. Put 100 if there is no confidence score available.
 """.strip()
-
-CHOICE_STRINGS = ["yes", "no"]
-
 
 def derive_key(password: str, length: int) -> bytes:
     """Derive a fixed-length key from the password using SHA256."""

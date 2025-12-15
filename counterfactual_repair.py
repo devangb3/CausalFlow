@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from trace_logger import TraceLogger, Step, StepType
 from causal_attribution import CausalAttribution
 from llm_client import LLMClient
+from text_processor import convert_text_to_jsonl
 from utils import extract_step_text, calculate_minimality_score
 
 
@@ -90,7 +91,8 @@ class CounterfactualRepair:
                                     Make the smallest possible change that fixes the issue.
                                     Always respond using the provided schema in JSON format.
                                     """,
-                    temperature=0.7
+                    temperature=0.7,
+                    model_name="anthropic/claude-sonnet-4.5"
                 )
 
                 repaired_step = self._apply_repair(original_step, result)
@@ -158,9 +160,9 @@ Step {step.step_id} ({step.step_type.value}):
 
         elif step.step_type == StepType.TOOL_CALL:
             prompt += f"Tool: {step.tool_name}\n"
-            prompt += f"Original Arguments: {step.tool_args}\n\n"
+            prompt += f"Original Arguments: {json.dumps(step.tool_args)}\n\n"
             prompt += "Based on the execution error logs, provide corrected tool name and arguments that address the failure.\n"
-            prompt += "Fill in 'repaired_tool_name' and 'repaired_tool_args'.\n"
+            prompt += "Fill in 'repaired_tool_name' and 'repaired_tool_args_json' (as a valid JSON string, e.g. '{\"key\": \"value\"}').\n"
             prompt += "List the specific changes in 'changes_made'.\n"
             prompt += "Explain why this is minimal and targeted in 'minimality_justification'."
 
@@ -230,9 +232,12 @@ Step {step.step_id} ({step.step_type.value}):
             repaired_step.text = repair_result.repaired_text or original_step.text
 
         elif original_step.step_type == StepType.TOOL_CALL:
-            # Use structured tool args and name directly
-            if repair_result.repaired_tool_args is not None:
-                repaired_step.tool_args = repair_result.repaired_tool_args
+            # Parse tool args from JSON string
+            if repair_result.repaired_tool_args_json is not None:
+                parsed = convert_text_to_jsonl(repair_result.repaired_tool_args_json)
+                if not parsed:
+                    raise ValueError(f"Failed to parse repaired_tool_args_json: {repair_result.repaired_tool_args_json}")
+                repaired_step.tool_args = parsed[0]
             if repair_result.repaired_tool_name is not None:
                 repaired_step.tool_name = repair_result.repaired_tool_name
 

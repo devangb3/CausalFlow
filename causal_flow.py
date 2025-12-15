@@ -1,5 +1,5 @@
-from typing import Dict, Any, Optional, List
-from trace_logger import TraceLogger, Step
+from typing import Dict, Any, Optional, List, Set
+from trace_logger import TraceLogger, Step, StepType
 from causal_graph import CausalGraph
 from causal_attribution import CausalAttribution
 from counterfactual_repair import CounterfactualRepair
@@ -34,7 +34,8 @@ class CausalFlow:
         trace: TraceLogger,
         reexecutor: Optional[Any] = None,
         execution_context: Optional[Dict[str, Any]] = None,
-        skip_critique: bool = False
+        skip_critique: bool = False,
+        intervene_step_types: Optional[Set[StepType]] = None,
     ) -> Dict[str, Any]:
 
         self.trace = trace
@@ -49,7 +50,10 @@ class CausalFlow:
             llm_client=self.llm_client,
             re_executor=reexecutor
         )
-        crs_scores = self.causal_attribution.compute_causal_responsibility(execution_context=execution_context)
+        crs_scores = self.causal_attribution.compute_causal_responsibility(
+            execution_context=execution_context,
+            intervene_step_types=intervene_step_types,
+        )
         causal_steps = self.causal_attribution.get_causal_steps()
         print(f"Attribution complete: {len(causal_steps)} causal steps identified")
         

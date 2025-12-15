@@ -1,9 +1,3 @@
-"""
-BrowseComp: A Simple Yet Challenging Benchmark for Browsing Agents
-Authors: Jason Wei, Zhiqing Sun, Spencer Papay, Scott McKinney, Jeffrey Han, Isa Fulford, Hyung Won Chung, Alex Tachard Passos, William Fedus, Mia Glaese
-https://openai.com/index/browsecomp/
-"""
-
 import base64
 import hashlib
 import os
@@ -13,6 +7,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 import pandas
+from llm_client import LLMClient
 
 from . import common
 from .types import Eval, EvalResult, SamplerBase, SingleEvalResult
@@ -20,7 +15,6 @@ from .types import Eval, EvalResult, SamplerBase, SingleEvalResult
 
 LOCAL_CSV_PATH = Path(__file__).parent.parent.parent / "browse_comp_test_set.csv"
 REMOTE_CSV_URL = "https://openaipublic.blob.core.windows.net/simple-evals/browse_comp_test_set.csv"
-
 
 QUERY_TEMPLATE = """
 {Question}
@@ -52,9 +46,6 @@ correct: 'yes' if extracted_final_answer is equivalent to [correct_answer] (incl
 confidence: Extract the confidence between 0 and 100 from [response]; use 100 if none is provided.
 """.strip()
 
-CHOICE_STRINGS = ["yes", "no"]
-
-
 def derive_key(password: str, length: int) -> bytes:
     """Derive a fixed-length key from the password using SHA256."""
     hasher = hashlib.sha256()
@@ -73,19 +64,31 @@ def decrypt(ciphertext_b64: str, password: str) -> str:
 
 def load_browsecomp_examples(
     num_examples: Optional[int] = None,
-    n_repeats: int = 1,
 ) -> List[Dict[str, Any]]:
 
     df = pandas.read_csv(LOCAL_CSV_PATH) if LOCAL_CSV_PATH.exists() else pandas.read_csv(REMOTE_CSV_URL)
     examples = [row.to_dict() for _, row in df.iterrows()]
     
     if num_examples:
-        if n_repeats != 1:
-            raise ValueError("n_repeats only supported when num_examples is None")
         rng = random.Random(42)
         examples = rng.sample(examples, min(num_examples, len(examples)))
     
-    return examples * n_repeats
+    return examples
+
+
+def grade_response(correct_answer: str, response: str, llm: LLMClient) -> bool:
+    grader_prompt = GRADER_TEMPLATE.format(
+        correct_answer=correct_answer,
+        response=response,
+    )
+    
+    grading_response = llm.generate(grader_prompt, temperature=0.0)
+    
+    match = re.search(r"correct: (yes|no)", grading_response, re.IGNORECASE)
+    if not match:
+        return False
+    
+    return match.group(1).lower() == "yes"
 
 
 class BrowseCompEval(Eval):
@@ -93,35 +96,13 @@ class BrowseCompEval(Eval):
         self,
         grader_model: SamplerBase,
         num_examples: Optional[int] = None,
-        n_repeats: int = 1,
     ):
-        """Initialize BrowseComp evaluation.
-        
-        Args:
-            grader_model: Model sampler for grading responses.
-            num_examples: Number of examples to evaluate (None for all).
-            n_repeats: Number of times to repeat the dataset.
-        """
         self.examples = load_browsecomp_examples(
             num_examples=num_examples,
-            n_repeats=n_repeats,
         )
         self.grader_model = grader_model
 
-    def grade_sample(self, question: str, correct_answer: str, response: str) -> str:
-        """Grade a single response.
-        
-        Args:
-            question: The question that was asked.
-            correct_answer: The correct answer.
-            response: The model's response to grade.
-            
-        Returns:
-            "correct: yes" or "correct: no"
-            
-        Raises:
-            ValueError: If judge output cannot be parsed (fail-fast).
-        """
+    def grade_sample(self, correct_answer: str, response: str) -> str:
         grader_prompt = GRADER_TEMPLATE.format(
             correct_answer=correct_answer,
             response=response,
@@ -144,14 +125,7 @@ class BrowseCompEval(Eval):
         return match.group(0).lower()
 
     def __call__(self, sampler: SamplerBase) -> EvalResult:
-        """Run evaluation with the given sampler.
-        
-        Args:
-            sampler: Model sampler to evaluate.
-            
-        Returns:
-            EvalResult with aggregated scores and metrics.
-        """
+
         def fn(row: dict) -> SingleEvalResult:
             problem = decrypt(row.get("problem", ""), row.get("canary", ""))
             answer = decrypt(row.get("answer", ""), row.get("canary", ""))

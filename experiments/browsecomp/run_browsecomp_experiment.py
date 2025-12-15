@@ -2,7 +2,6 @@ import os
 import sys
 from pathlib import Path
 from typing import Dict, Optional, List, Any
-import re
 from dotenv import load_dotenv
 from tqdm import tqdm
 
@@ -14,46 +13,9 @@ from llm_client import LLMClient
 from mongodb_storage import MongoDBStorage
 from trace_logger import TraceLogger, StepType
 
-from experiments.browsecomp.browsecomp_eval import (
-    decrypt,
-    load_browsecomp_examples,
-    GRADER_TEMPLATE,
-)
+from experiments.browsecomp.browsecomp_eval import decrypt, load_browsecomp_examples, grade_response
 from experiments.browsecomp.browsecomp_agent import BrowseCompAgent
 from experiments.browsecomp.web_env import WebEnvironment
-from experiments.browsecomp.types import SamplerBase, SamplerResponse
-
-
-class LLMSampler(SamplerBase):
-   
-    def __init__(self, llm_client: LLMClient):
-        self.llm = llm_client
-    
-    def __call__(self, message_list: List[Dict[str, str]]) -> SamplerResponse:
-        prompt_parts = []
-        system_msg = None
-        
-        for msg in message_list:
-            if msg["role"] == "system":
-                system_msg = msg["content"]
-            else:
-                prompt_parts.append(msg["content"])
-        
-        prompt = "\n\n".join(prompt_parts)
-        
-        response_text = self.llm.generate(
-            prompt,
-            system_message=system_msg,
-            temperature=0.0,
-        )
-        
-        return SamplerResponse(
-            response_text=response_text,
-            actual_queried_message_list=message_list,
-        )
-    
-    def _pack_message(self, content: str, role: str = "user") -> Dict[str, str]:
-        return {"role": role, "content": content}
 
 
 class BrowseCompExperiment:
@@ -61,17 +23,13 @@ class BrowseCompExperiment:
         self,
         api_key: str,
         solver_model: str = "google/gemini-2.5-flash",
-        grader_model: str = "google/gemini-2.5-flash",
         search_api_key: Optional[str] = None,
         max_steps: int = 15,
     ):
         self.api_key = api_key
         self.solver_model = solver_model
-        self.grader_model = grader_model
         
         self.solver_llm = LLMClient(api_key=api_key, model=solver_model, temperature=0.0)
-        self.grader_llm = LLMClient(api_key=api_key, model=grader_model, temperature=0.0)
-        self.grader_sampler = LLMSampler(self.grader_llm)
         
         self.web_env = WebEnvironment(
             search_api_key=search_api_key,
@@ -95,28 +53,6 @@ class BrowseCompExperiment:
             mongo_storage=self.mongo_storage,
         )
     
-    def grade_response(
-        self,
-        correct_answer: str,
-        response: str,
-    ) -> bool:      
-        grader_prompt = GRADER_TEMPLATE.format(
-            correct_answer=correct_answer,
-            response=response,
-        )
-        
-        sampler_response = self.grader_sampler([{"role": "user", "content": grader_prompt}])
-        grading_response = sampler_response.response_text
-        
-        match = re.search(r"correct: (yes|no)", grading_response, re.IGNORECASE)
-        if not match:
-            raise ValueError(
-                f"Failed to parse judge output. Expected 'correct: yes' or 'correct: no' "
-                f"but got:\n{grading_response}"
-            )
-        
-        return match.group(1).lower() == "yes"
-    
     def run(
         self,
         num_examples: Optional[int] = None,
@@ -136,7 +72,7 @@ class BrowseCompExperiment:
             "incorrect": 0,
             "errors": 0,
             "analyzed": 0,
-            "repair_success_predicted": 0,
+            "repair_success": 0,
         }
         
         results: List[Dict[str, Any]] = []
@@ -166,29 +102,19 @@ class BrowseCompExperiment:
                 continue
             
             agent_response = trace.final_answer or ""
-            
-            try:
-                is_correct = self.grade_response(
-                    correct_answer=gold_answer,
-                    response=agent_response,
-                )
-            except ValueError as e:
-                print(f"Grading error: {e}")
-                is_correct = False
-                stats["errors"] += 1
-            
-            trace.success = is_correct
+                        
+            trace.success = grade_response(gold_answer, agent_response, self.solver_llm) if trace.final_answer else False
             
             result_entry = {
                 "problem_id": problem_id,
                 "question": question,
                 "gold_answer": gold_answer,
                 "agent_response": agent_response,
-                "is_correct": is_correct,
+                "is_correct": trace.success,
                 "num_steps": len(trace.steps),
             }
             
-            if is_correct:
+            if trace.success:
                 stats["correct"] += 1
                 print(f"CORRECT ({len(trace.steps)} steps)")
                 
@@ -218,13 +144,14 @@ class BrowseCompExperiment:
                         reexecutor=self.agent,
                         execution_context=execution_context,
                         skip_critique=skip_critique,
+                        intervene_step_types={StepType.TOOL_CALL, StepType.LLM_RESPONSE, StepType.REASONING},
                     )
                     
                     stats["analyzed"] += 1
                     
                     repair_metrics = analysis.get("metrics", {}).get("repair_metrics", {})
                     if repair_metrics.get("successful_repairs", 0) > 0:
-                        stats["repair_success_predicted"] += 1
+                        stats["repair_success"] += 1
                     
                     result_entry["analysis"] = analysis
                     
@@ -250,7 +177,7 @@ class BrowseCompExperiment:
         try:
             self.mongo_storage.update_run_statistics(
                 run_id=run_id,
-                fixed=stats["repair_success_predicted"],
+                fixed=stats["repair_success"],
                 analyzed=stats["analyzed"],
                 accuracy=accuracy,
             )
@@ -265,7 +192,7 @@ class BrowseCompExperiment:
         print(f"Incorrect: {stats['incorrect']}")
         print(f"Errors: {stats['errors']}")
         print(f"Analyzed: {stats['analyzed']}")
-        print(f"Repair success predicted: {stats['repair_success_predicted']}")
+        print(f"Repair success: {stats['repair_success']}")
         print(f"Cache stats: {self.web_env.get_cache_stats()}")
         
         return {
@@ -310,13 +237,12 @@ def main():
     experiment = BrowseCompExperiment(
         api_key=api_key,
         solver_model="openai/gpt-5.1",
-        grader_model="openai/gpt-5.2",
         search_api_key=search_api_key,
         max_steps=15,
     )
     
     results = experiment.run(
-        num_examples=5,
+        num_examples=None,
         skip_critique=True,
     )
     
