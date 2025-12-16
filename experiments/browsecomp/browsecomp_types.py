@@ -70,3 +70,4 @@ class Eval(ABC):
             EvalResult with scores and metrics.
         """
         raise NotImplementedError
+

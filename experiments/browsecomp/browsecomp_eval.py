@@ -10,7 +10,7 @@ import pandas
 from llm_client import LLMClient
 
 from . import common
-from .types import Eval, EvalResult, SamplerBase, SingleEvalResult
+from .browsecomp_types import Eval, EvalResult, SamplerBase, SingleEvalResult
 
 
 LOCAL_CSV_PATH = Path(__file__).parent.parent.parent / "browse_comp_test_set.csv"

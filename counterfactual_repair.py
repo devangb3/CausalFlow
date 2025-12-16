@@ -87,8 +87,16 @@ class CounterfactualRepair:
                     prompt,
                     schema_name="repair",
                     system_message="""You are an expert at debugging and fixing agent failures. 
-                                    Analyze the execution error logs carefully and generate MINIMAL, TARGETED edits that directly address the specific error.
-                                    Make the smallest possible change that fixes the issue.
+                                    Your goal is to fix the specific LOGICAL ERROR in THIS step only, not to achieve the final answer.
+                                    
+                                    CRITICAL RULES:
+                                    1. Fix what went wrong in THIS step's logic - focus on the error in THIS step, not the entire solution
+                                    2. DO NOT directly use, search for, or reference the gold answer in your repair
+                                    3. Generate MINIMAL, TARGETED edits that fix the logical error in THIS step
+                                    4. For tool calls: fix the reasoning/query for THIS sub-goal, don't jump to searching for the final answer
+                                    5. Your repair should make sense even if the gold answer were different
+                                    
+                                    Make the smallest possible change that fixes the logical error in THIS step.
                                     Always respond using the provided schema in JSON format.
                                     """,
                     temperature=0.7,
@@ -126,11 +134,15 @@ class CounterfactualRepair:
     def _create_repair_prompt(self, step: Step, previous_steps: List[Step]) -> str:
         execution_logs = self._extract_execution_logs()
         
-        prompt = f"""You are debugging a failed agent execution. The agent's final answer was incorrect.
+        prompt = f"""You are a "Causal Debugger" for an AI Agent. 
+The agent failed a task. Your goal is to fix the specific *logic error* in the current step.
 
 Problem Statement: {self.trace.problem_statement}
-Correct Answer: {self.trace.gold_answer}
+Correct Answer (FOR REFERENCE ONLY): {self.trace.gold_answer}
 Agent's Incorrect Answer: {self.trace.final_answer}
+
+IMPORTANT: The correct answer is provided for reference to understand what the agent should have eventually arrived at.
+DO NOT directly incorporate the gold answer into your repair. Your repair should fix the logical error in THIS step only.
 """
 
         if execution_logs:
@@ -142,18 +154,29 @@ Use these error logs to understand the specific failure and create a targeted fi
 """
 
         prompt += f"""
+CRITICAL CONSTRAINTS:
+1. The gold answer is provided for reference ONLY - DO NOT directly use it in your repair
+2. Fix the logical error in THIS step only - not the entire solution path
+3. For tool calls: fix the reasoning/query for THIS sub-goal, don't jump to searching for the final answer
+4. Your repair should make sense even if the gold answer were different
+5. Focus on what went wrong in THIS step's logic, not on achieving the correct final answer
+
+BAD EXAMPLE: If this step searches for "Person B who won Rollo Davidson Prize", DO NOT change it to search for "Russell Lyons" (the gold answer)
+GOOD EXAMPLE: Fix the search query logic to correctly find Person B based on the constraints given in THIS step
+
 Recent previous steps:
 {json.dumps([step.to_dict() for step in previous_steps], indent=2)}
 
-Below is the step that has been identified as causally responsible for the failure.
+TARGET STEP TO FIX: Below is the step that has been identified as causally responsible for the failure.
 
 Step {step.step_id} ({step.step_type.value}):
 """
 
         if step.step_type == StepType.REASONING:
             prompt += f"Original Reasoning: {step.text}\n\n"
-            prompt += "Based on the execution error logs above, provide a MINIMAL, TARGETED correction to this reasoning.\n"
-            prompt += "The correction should directly address the specific error shown in the logs.\n"
+            prompt += "Based on the execution error logs above, provide a MINIMAL, TARGETED correction to fix the logical error in THIS reasoning step.\n"
+            prompt += "The correction should directly address what went wrong in THIS step's logic, not jump to the final solution.\n"
+            prompt += "Focus on fixing the reasoning flaw in THIS step only.\n"
             prompt += "Fill in 'repaired_text' with the corrected reasoning.\n"
             prompt += "List the specific changes in 'changes_made'.\n"
             prompt += "Explain why this is minimal and targeted in 'minimality_justification'."
@@ -161,15 +184,19 @@ Step {step.step_id} ({step.step_type.value}):
         elif step.step_type == StepType.TOOL_CALL:
             prompt += f"Tool: {step.tool_name}\n"
             prompt += f"Original Arguments: {json.dumps(step.tool_args)}\n\n"
-            prompt += "Based on the execution error logs, provide corrected tool name and arguments that address the failure.\n"
+            prompt += "Based on the execution error logs, identify and fix the logical error in THIS tool call.\n"
+            prompt += "Focus on fixing what went wrong with THIS specific tool usage - the reasoning or query for THIS sub-goal.\n"
+            prompt += "DO NOT change the tool arguments to directly search for or reference the gold answer.\n"
+            prompt += "Example: If searching for 'Person B', fix the search logic for Person B - don't change it to search for the final answer.\n"
             prompt += "Fill in 'repaired_tool_name' and 'repaired_tool_args_json' (as a valid JSON string, e.g. '{\"key\": \"value\"}').\n"
             prompt += "List the specific changes in 'changes_made'.\n"
             prompt += "Explain why this is minimal and targeted in 'minimality_justification'."
 
         elif step.step_type == StepType.LLM_RESPONSE:
             prompt += f"Original LLM Response (code): {step.text}\n\n"
-            prompt += "Based on the execution error logs, provide a MINIMAL, TARGETED code fix.\n"
+            prompt += "Based on the execution error logs, provide a MINIMAL, TARGETED code fix for the logical error in THIS step.\n"
             prompt += "The fix should directly address the specific error shown in the logs (e.g., fix the exact line causing the error).\n"
+            prompt += "Focus on fixing what went wrong in THIS step's code logic, not on producing the final answer.\n"
             prompt += "Fill in 'repaired_text' with the corrected code.\n"
             prompt += "List the specific changes in 'changes_made'.\n"
             prompt += "Explain why this is minimal and targeted in 'minimality_justification'."
@@ -177,7 +204,8 @@ Step {step.step_id} ({step.step_type.value}):
         elif step.step_type == StepType.MEMORY_ACCESS:
             prompt += f"Memory Key: {step.memory_key}\n"
             prompt += f"Original Value: {step.memory_value}\n\n"
-            prompt += "Based on the execution error logs, provide the correct memory value.\n"
+            prompt += "Based on the execution error logs, fix the logical error in this memory access step.\n"
+            prompt += "Focus on what went wrong with THIS memory operation, not on achieving the final answer.\n"
             prompt += "Fill in 'repaired_text' with the corrected value.\n"
             prompt += "List changes in 'changes_made'.\n"
             prompt += "Explain minimality in 'minimality_justification'."
@@ -185,7 +213,8 @@ Step {step.step_id} ({step.step_type.value}):
         elif step.step_type == StepType.TOOL_RESPONSE:
             prompt += f"Tool Output: {step.tool_output}\n"
             prompt += f"Tool Call Result: {step.tool_call_result}\n\n"
-            prompt += "Based on the execution error logs, provide a corrected tool response.\n"
+            prompt += "Based on the execution error logs, fix the logical error in this tool response.\n"
+            prompt += "Focus on what went wrong with THIS tool's output, not on producing the final answer.\n"
             prompt += "Fill in 'repaired_text' with the corrected output.\n"
             prompt += "List changes in 'changes_made'.\n"
             prompt += "Explain minimality in 'minimality_justification'."
@@ -193,12 +222,27 @@ Step {step.step_id} ({step.step_type.value}):
         else:
             content = step.text or step.action or step.observation
             prompt += f"Original Content: {content}\n\n"
-            prompt += "Based on the execution error logs, provide a minimal, targeted correction.\n"
+            prompt += "Based on the execution error logs, provide a minimal, targeted correction to fix the logical error in THIS step.\n"
+            prompt += "Focus on what went wrong in THIS step, not on achieving the final answer.\n"
             prompt += "Fill in 'repaired_text'.\n"
             prompt += "List changes in 'changes_made'.\n"
             prompt += "Explain minimality in 'minimality_justification'."
 
-        prompt += "\n\nCRITICAL: Make MINIMAL, TARGETED edits that directly address the specific error shown in the execution logs. Change ONLY what is necessary to fix the error."
+        prompt += """
+
+CRITICAL REMINDERS:
+1. You are patching the track, not driving the train - fix THIS step's logic, not the entire solution
+2. DO NOT search for, reference, or incorporate the gold answer in your repair
+3. If you simply state the final answer, the repair will be rejected for low minimality
+4. Fix only the logical error in THIS step - your repair should work regardless of what the final answer is
+
+CONCRETE EXAMPLES OF BAD vs GOOD REPAIRS:
+BAD: Changing search query from "Rollo Davidson Prize winner" to "Russell Lyons PhD 1983" (jumps to final answer)
+GOOD: Changing search query from "Rollo Davidson Prize winner" to "Rollo Davidson Prize 1990-2005" (fixes the logic for THIS step)
+
+BAD: Updating reasoning to "The answer is Russell Lyons" (states final answer)
+GOOD: Updating reasoning to "Need to check publication dates between 1990-2005, not all publications" (fixes logic flaw)
+"""
 
         return prompt
 

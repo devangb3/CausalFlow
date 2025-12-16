@@ -5,7 +5,7 @@ from .browsecomp_eval import (
     decrypt,
     load_browsecomp_examples,
 )
-from .types import Eval, EvalResult, SamplerBase, SingleEvalResult, SamplerResponse
+from .browsecomp_types import Eval, EvalResult, SamplerBase, SingleEvalResult, SamplerResponse
 from .web_env import (
     WebEnvironment,
     SearchResult,

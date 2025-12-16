@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import jinja2
 
-from .types import EvalResult, SingleEvalResult
+from .browsecomp_types import EvalResult, SingleEvalResult
 
 
 # Jinja2 environment for HTML rendering

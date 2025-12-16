@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Dict, Optional, List, Any
 from dotenv import load_dotenv
@@ -58,6 +59,8 @@ class BrowseCompExperiment:
         num_examples: Optional[int] = None,
         skip_critique: bool = True,
     ) -> Dict[str, Any]:
+        experiment_start_time = time.time()
+        
         examples = load_browsecomp_examples(num_examples=num_examples)
         print(f"Running BrowseComp on {len(examples)} examples")
         
@@ -129,6 +132,8 @@ class BrowseCompExperiment:
             else:
                 stats["incorrect"] += 1
                 
+                causal_flow_analysis_time_minutes: Optional[float] = None
+                causal_flow_start_time = time.time()
                 try:
                     web_logs = self._extract_web_logs(trace)
                     execution_context = {
@@ -146,6 +151,8 @@ class BrowseCompExperiment:
                         skip_critique=skip_critique,
                         intervene_step_types={StepType.TOOL_CALL, StepType.LLM_RESPONSE, StepType.REASONING},
                     )
+                    causal_flow_analysis_time_seconds = time.time() - causal_flow_start_time
+                    causal_flow_analysis_time_minutes = causal_flow_analysis_time_seconds / 60.0
                     
                     stats["analyzed"] += 1
                     
@@ -164,15 +171,33 @@ class BrowseCompExperiment:
                         final_answer=agent_response,
                         analysis_results=analysis,
                         metrics=analysis.get("metrics"),
+                        causal_flow_analysis_time_minutes=causal_flow_analysis_time_minutes,
                     )
                     
                 except Exception as e:
+                    if causal_flow_analysis_time_minutes is None:
+                        causal_flow_analysis_time_seconds = time.time() - causal_flow_start_time
+                        causal_flow_analysis_time_minutes = causal_flow_analysis_time_seconds / 60.0
                     print(f"CausalFlow analysis error for {problem_id}: {e}")
                     result_entry["analysis_error"] = str(e)
+                    
+                    self.mongo_storage.add_failing_trace(
+                        run_id=run_id,
+                        trace_data=trace.to_json(),
+                        problem_id=problem_id,
+                        problem_statement=question,
+                        gold_answer=gold_answer,
+                        final_answer=agent_response,
+                        analysis_results={},
+                        metrics={},
+                        causal_flow_analysis_time_minutes=causal_flow_analysis_time_minutes,
+                    )
             
             results.append(result_entry)
         
         accuracy = stats["correct"] / stats["total"] if stats["total"] > 0 else 0.0
+        total_experiment_time = time.time() - experiment_start_time
+        total_experiment_time_minutes = total_experiment_time / 60.0
         
         try:
             self.mongo_storage.update_run_statistics(
@@ -180,6 +205,7 @@ class BrowseCompExperiment:
                 fixed=stats["repair_success"],
                 analyzed=stats["analyzed"],
                 accuracy=accuracy,
+                total_experiment_time_minutes=total_experiment_time_minutes,
             )
         except Exception as e:
             print(f"Error updating run statistics: {e}")
@@ -193,6 +219,7 @@ class BrowseCompExperiment:
         print(f"Errors: {stats['errors']}")
         print(f"Analyzed: {stats['analyzed']}")
         print(f"Repair success: {stats['repair_success']}")
+        print(f"Total experiment time: {total_experiment_time_minutes:.2f} minutes")
         print(f"Cache stats: {self.web_env.get_cache_stats()}")
         
         return {
@@ -200,6 +227,7 @@ class BrowseCompExperiment:
             "accuracy": accuracy,
             "results": results,
             "run_id": run_id,
+            "total_experiment_time_minutes": total_experiment_time_minutes,
         }
     
     def _extract_web_logs(self, trace: TraceLogger) -> str:

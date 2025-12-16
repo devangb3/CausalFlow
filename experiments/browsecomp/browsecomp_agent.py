@@ -87,14 +87,23 @@ Important guidelines:
         gathered_facts, search_history, page_summaries = self._reconstruct_state_from_history(history)
         
         if last_step.step_type == StepType.TOOL_CALL:
-            gathered_facts, search_history, page_summaries = self._execute_pending_tool_call(
-                trace=trace,
-                tool_call_step=last_step,
-                gathered_facts=gathered_facts,
-                search_history=search_history,
-                page_summaries=page_summaries,
-            )
-        
+            try:
+                gathered_facts, search_history, page_summaries = self._execute_pending_tool_call(
+                    trace=trace,
+                    tool_call_step=last_step,
+                    gathered_facts=gathered_facts,
+                    search_history=search_history,
+                    page_summaries=page_summaries,
+                )
+            except Exception as e:
+                trace.log_reasoning(
+                    f"Error executing tool call: {e}. Forcing answer.",
+                    dependencies=[last_step.step_id],
+                )
+                new_trace = self._force_answer(trace, context, gathered_facts, search_history=search_history, page_summaries=page_summaries, dependencies=[last_step.step_id])
+                new_trace.success = grade_response(context.gold_answer, new_trace.final_answer, self.llm)
+                return new_trace
+
         new_trace = self._run_with_state(
             trace=trace,
             context=context,
@@ -303,7 +312,7 @@ Important guidelines:
             if action_type == "search":
                 query = agent_step.query
                 if not query:
-                    raise ValueError("Search action requires a query")
+                    continue
                 
                 tool_call_step = trace.log_tool_call(
                     tool_name="web_search",

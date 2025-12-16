@@ -104,7 +104,8 @@ class MongoDBStorage:
         problem_id: Any,
         problem_statement: str,
         gold_answer: Any,
-        final_answer: Any
+        final_answer: Any,
+        causal_flow_analysis_time_minutes: Optional[float] = None
     ):
         trace_obj = self._parse_trace_json(trace_data)
 
@@ -117,7 +118,8 @@ class MongoDBStorage:
             "problem_statement": problem_statement,
             "gold_answer": gold_answer,
             "final_answer": final_answer,
-            "trace": trace_obj
+            "trace": trace_obj,
+            "causal_flow_analysis_time_minutes": causal_flow_analysis_time_minutes
         }
 
         self.runs.update_one(
@@ -137,21 +139,10 @@ class MongoDBStorage:
         gold_answer: Any,
         final_answer: Any,
         analysis_results: Dict[str, Any],
-        metrics: Dict[str, Any]
+        metrics: Dict[str, Any],
+        causal_flow_analysis_time_minutes: Optional[float] = None
     ):
-        """
-        Add a failing trace with complete CausalFlow analysis to an existing run.
 
-        Args:
-            run_id: Run identifier
-            trace_data: Complete trace data (from TraceLogger.to_json())
-            problem_id: Unique problem identifier
-            problem_statement: The problem text
-            gold_answer: Expected answer
-            final_answer: Agent's answer (incorrect)
-            analysis_results: Complete analysis results
-            metrics: All metrics
-        """
         trace_obj = self._parse_trace_json(trace_data)
 
         trace_obj = self._convert_keys_to_strings(trace_obj)
@@ -166,6 +157,7 @@ class MongoDBStorage:
             "problem_statement": problem_statement,
             "gold_answer": gold_answer,
             "final_answer": final_answer,
+            "causal_flow_analysis_time_minutes": causal_flow_analysis_time_minutes,
 
             "trace": trace_obj,
             
@@ -221,7 +213,7 @@ class MongoDBStorage:
             }
         )
 
-        print(f"Added failing trace with complete analysis for problem {problem_id} to run {run_id}")
+        print(f"Added failing trace for problem {problem_id}")
 
     def get_run(self, run_id: str) -> Optional[Dict[str, Any]]:
 
@@ -232,7 +224,8 @@ class MongoDBStorage:
         run_id: str,
         fixed: int,
         analyzed: int,
-        accuracy: float
+        accuracy: float,
+        total_experiment_time_minutes: float = 0.0
     ) -> None:
 
         update_data: Dict[str, Any] = {
@@ -240,6 +233,7 @@ class MongoDBStorage:
                 "stats.fixed": fixed,
                 "stats.analyzed": analyzed,
                 "stats.accuracy": accuracy,
+                "stats.total_experiment_time_minutes": total_experiment_time_minutes
             }
         }
         
