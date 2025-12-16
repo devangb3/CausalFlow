@@ -3,7 +3,6 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 
-
 class StepType(Enum):
     REASONING = "reasoning"
     TOOL_CALL = "tool_call"
@@ -14,14 +13,12 @@ class StepType(Enum):
     ENVIRONMENT_OBSERVATION = "environment_observation"
     FINAL_ANSWER = "final_answer"
 
-
 @dataclass
 class Step:
     step_id: int
     step_type: StepType
     dependencies: List[int] = field(default_factory=list)
 
-    # Optional fields depending on step type
     text: Optional[str] = None
     tool_name: Optional[str] = None
     tool_args: Optional[Dict[str, Any]] = None
@@ -31,6 +28,7 @@ class Step:
     memory_value: Optional[Any] = None
     action: Optional[str] = None
     observation: Optional[str] = None
+    state_snapshot: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         result = {
@@ -39,9 +37,8 @@ class Step:
             "dependencies": self.dependencies
         }
 
-        # Add non-None optional fields
         for field_name in ["text", "tool_name", "tool_args", "tool_output", "tool_call_result",
-                          "memory_key", "memory_value", "action", "observation"]:
+                          "memory_key", "memory_value", "action", "observation", "state_snapshot"]:
             value = getattr(self, field_name)
             if value is not None:
                 result[field_name] = value
@@ -208,6 +205,7 @@ class TraceLogger:
                 memory_value=step_data.get("memory_value"),
                 action=step_data.get("action"),
                 observation=step_data.get("observation"),
+                state_snapshot=step_data.get("state_snapshot"),
             )
             logger.steps.append(step)
 
