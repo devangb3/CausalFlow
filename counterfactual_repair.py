@@ -100,7 +100,7 @@ class CounterfactualRepair:
                                     Always respond using the provided schema in JSON format.
                                     """,
                     temperature=0.7,
-                    model_name="anthropic/claude-sonnet-4.5"
+                    model_name="google/gemini-3-flash-preview"
                 )
 
                 repaired_step = self._apply_repair(original_step, result)

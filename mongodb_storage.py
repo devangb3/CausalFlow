@@ -1,9 +1,12 @@
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from dotenv import load_dotenv
 import json
+
+SNAPSHOT_MAX_CHARS = 300
+TEXT_MAX_CHARS = 1000
 
 class MongoDBStorage:
 
@@ -22,35 +25,40 @@ class MongoDBStorage:
         self.db = self.client[db_name]
         self.runs = self.db['runs']
         self._setup_indexes()
-        self.current_run_id = None
+        self.current_run_id: Optional[str] = None
     
     def _get_client(self) -> MongoClient:
-        
-        client = None
         try:
-                kwargs = {}
-                if os.getenv('MONGODB_AWS_ACCESS_KEY'):
-                    kwargs["username"] = os.getenv('MONGODB_AWS_ACCESS_KEY')
-                    kwargs["password"] = os.getenv('MONGODB_AWS_SECRET_KEY')
-                    kwargs["authMechanism"] = "MONGODB-AWS"
+            kwargs: Dict[str, str] = {}
+            if os.getenv('MONGODB_AWS_ACCESS_KEY'):
+                kwargs["username"] = os.getenv('MONGODB_AWS_ACCESS_KEY') or ""
+                kwargs["password"] = os.getenv('MONGODB_AWS_SECRET_KEY') or ""
+                kwargs["authMechanism"] = "MONGODB-AWS"
 
-                client = MongoClient(
-                    self.mongo_uri,
-                    serverSelectionTimeoutMS=10000,
-                    connectTimeoutMS=10000,
-                    maxPoolSize=100,
-                    minPoolSize=10,
-                    **kwargs
-                )
+            client: MongoClient = MongoClient(
+                self.mongo_uri,
+                serverSelectionTimeoutMS=10000,
+                connectTimeoutMS=10000,
+                maxPoolSize=100,
+                minPoolSize=10,
+                **kwargs
+            )
         except Exception as e:
             raise Exception(f"Failed to connect to MongoDB: {e}")
                 
         return client
 
-    def _setup_indexes(self):
+    def _setup_indexes(self) -> None:
         self.runs.create_index([("run_id", ASCENDING)], unique=True)
         self.runs.create_index([("timestamp", DESCENDING)])
         self.runs.create_index([("experiment_name", ASCENDING)])
+
+    def _truncate(self, text: Optional[str], max_chars: int) -> Optional[str]:
+        if text is None:
+            return None
+        if len(text) <= max_chars:
+            return text
+        return text[:max_chars] + "..."
 
     def _convert_keys_to_strings(self, obj: Any) -> Any:
         if isinstance(obj, dict):
@@ -61,10 +69,140 @@ class MongoDBStorage:
             return obj
 
     def _parse_trace_json(self, trace_data: Any) -> Dict[str, Any]:
-
         if isinstance(trace_data, str):
             return json.loads(trace_data)
         return trace_data
+
+    def _compact_trace(self, trace_obj: Dict[str, Any]) -> Dict[str, Any]:
+        """Keep trace structure but truncate large string fields."""
+        compact = {
+            "success": trace_obj.get("success"),
+            "final_answer": trace_obj.get("final_answer"),
+            "gold_answer": trace_obj.get("gold_answer"),
+            "problem_statement": trace_obj.get("problem_statement"),
+            "num_steps": trace_obj.get("num_steps"),
+        }
+        
+        steps = trace_obj.get("steps", [])
+        compact_steps: List[Dict[str, Any]] = []
+        
+        for step in steps:
+            compact_step: Dict[str, Any] = {
+                "step_id": step.get("step_id"),
+                "step_type": step.get("step_type"),
+                "dependencies": step.get("dependencies", []),
+            }
+            
+            # Keep tool_name and tool_args (small)
+            if step.get("tool_name"):
+                compact_step["tool_name"] = step["tool_name"]
+            if step.get("tool_args"):
+                compact_step["tool_args"] = step["tool_args"]
+            if step.get("tool_call_result") is not None:
+                compact_step["tool_call_result"] = step["tool_call_result"]
+            
+            # Truncate large text fields
+            if step.get("text"):
+                compact_step["text"] = self._truncate(step["text"], TEXT_MAX_CHARS)
+            if step.get("tool_output"):
+                compact_step["tool_output"] = self._truncate(str(step["tool_output"]), SNAPSHOT_MAX_CHARS)
+            if step.get("observation"):
+                compact_step["observation"] = self._truncate(step["observation"], SNAPSHOT_MAX_CHARS)
+            if step.get("action"):
+                compact_step["action"] = self._truncate(step["action"], TEXT_MAX_CHARS)
+            if step.get("memory_key"):
+                compact_step["memory_key"] = step["memory_key"]
+            if step.get("memory_value"):
+                compact_step["memory_value"] = self._truncate(str(step["memory_value"]), SNAPSHOT_MAX_CHARS)
+            if step.get("state_snapshot"):
+                snapshot_str = json.dumps(step["state_snapshot"]) if isinstance(step["state_snapshot"], dict) else str(step["state_snapshot"])
+                compact_step["state_snapshot"] = self._truncate(snapshot_str, SNAPSHOT_MAX_CHARS)
+            
+            compact_steps.append(compact_step)
+        
+        compact["steps"] = compact_steps
+        return compact
+
+    def _compact_step(self, step: Dict[str, Any]) -> Dict[str, Any]:
+        """Compact a single step dict, truncating large fields."""
+        compact: Dict[str, Any] = {
+            "step_id": step.get("step_id"),
+            "step_type": step.get("step_type"),
+        }
+        if step.get("tool_name"):
+            compact["tool_name"] = step["tool_name"]
+        if step.get("tool_args"):
+            compact["tool_args"] = step["tool_args"]
+        if step.get("text"):
+            compact["text"] = step["text"]
+        if step.get("tool_output"):
+            compact["tool_output"] = self._truncate(str(step["tool_output"]), SNAPSHOT_MAX_CHARS)
+        return compact
+
+    def _compact_analysis(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
+        """Keep analysis structure but truncate large string fields."""
+        compact: Dict[str, Any] = {}
+        
+        # Keep causal_graph (usually small - just step relationships)
+        if "causal_graph" in analysis_results:
+            compact["causal_graph"] = analysis_results["causal_graph"]
+        
+        # Keep causal_attribution (step IDs and scores)
+        if "causal_attribution" in analysis_results:
+            compact["causal_attribution"] = analysis_results["causal_attribution"]
+        
+        # Compact the repairs - truncate large step data
+        if "counterfactual_repair" in analysis_results:
+            cf_repair = analysis_results["counterfactual_repair"]
+            compact_cf: Dict[str, Any] = {
+                "num_steps_repaired": cf_repair.get("num_steps_repaired"),
+                "num_successful_repairs": cf_repair.get("num_successful_repairs"),
+            }
+            
+            if "best_repairs" in cf_repair:
+                compact_repairs: Dict[str, Any] = {}
+                for step_id, repair_data in cf_repair["best_repairs"].items():
+                    if isinstance(repair_data, dict):
+                        compact_repairs[str(step_id)] = {
+                            "minimality_score": repair_data.get("minimality_score"),
+                            "success_predicted": repair_data.get("success_predicted"),
+                            "original_step": self._compact_step(repair_data.get("original_step", {})),
+                            "repaired_step": self._compact_step(repair_data.get("repaired_step", {})),
+                        }
+                compact_cf["best_repairs"] = compact_repairs
+            
+            compact["counterfactual_repair"] = compact_cf
+        
+        return compact
+
+    def _build_metrics_document(self, metrics: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if not metrics:
+            return {}
+        
+        minimality = metrics.get('minimality_metrics', {})
+        attribution = metrics.get('causal_attribution_metrics', {})
+        repairs = metrics.get('repair_metrics', {})
+        
+        return {
+            "minimality": {
+                "average": minimality.get("average_minimality"),
+                "min": minimality.get("min_minimality"),
+                "max": minimality.get("max_minimality"),
+            },
+            "attribution": {
+                "num_identified_causal_steps": attribution.get("num_identified_causal_steps"),
+                "identified_steps": attribution.get("identified_steps", []),
+                "precision": attribution.get("precision"),
+                "recall": attribution.get("recall"),
+                "f1_score": attribution.get("f1_score"),
+            },
+            "repairs": {
+                "total_repairs_attempted": repairs.get("total_repairs_attempted"),
+                "successful_repairs": repairs.get("successful_repairs"),
+                "failed_repairs": repairs.get("failed_repairs"),
+                "success_rate": repairs.get("success_rate"),
+            },
+        }
 
     def create_run(
         self,
@@ -75,7 +213,7 @@ class MongoDBStorage:
         timestamp = datetime.utcnow().isoformat()
         run_id = f"run_{experiment_name}_{timestamp}"
 
-        document = {
+        document: Dict[str, Any] = {
             "run_id": run_id,
             "experiment_name": experiment_name,
             "timestamp": timestamp,
@@ -106,19 +244,19 @@ class MongoDBStorage:
         gold_answer: Any,
         final_answer: Any,
         causal_flow_analysis_time_minutes: Optional[float] = None
-    ):
+    ) -> None:
         trace_obj = self._parse_trace_json(trace_data)
-
         trace_obj = self._convert_keys_to_strings(trace_obj)
+        compact_trace = self._compact_trace(trace_obj)
 
-        trace_document = {
+        trace_document: Dict[str, Any] = {
             "problem_id": problem_id,
             "timestamp": datetime.utcnow().isoformat(),
             "success": True,
             "problem_statement": problem_statement,
             "gold_answer": gold_answer,
             "final_answer": final_answer,
-            "trace": trace_obj,
+            "trace": compact_trace,
             "causal_flow_analysis_time_minutes": causal_flow_analysis_time_minutes
         }
 
@@ -138,19 +276,23 @@ class MongoDBStorage:
         problem_statement: str,
         gold_answer: Any,
         final_answer: Any,
-        analysis_results: Dict[str, Any],
-        metrics: Dict[str, Any],
+        analysis_results: Optional[Dict[str, Any]],
+        metrics: Optional[Dict[str, Any]],
         causal_flow_analysis_time_minutes: Optional[float] = None
-    ):
-
+    ) -> None:
         trace_obj = self._parse_trace_json(trace_data)
-
         trace_obj = self._convert_keys_to_strings(trace_obj)
-        analysis_results = self._convert_keys_to_strings(analysis_results)
-        metrics = self._convert_keys_to_strings(metrics)
-        final_repairs = analysis_results.get("counterfactual_repair", {}).get("best_repairs", {})
+        compact_trace = self._compact_trace(trace_obj)
         
-        trace_document = {
+        if analysis_results is None:
+            analysis_results = {}
+        if metrics is None:
+            metrics = {}
+            
+        analysis_results = self._convert_keys_to_strings(analysis_results)
+        compact_analysis = self._compact_analysis(analysis_results)
+
+        trace_document: Dict[str, Any] = {
             "problem_id": problem_id,
             "timestamp": datetime.utcnow().isoformat(),
             "success": False,
@@ -158,51 +300,9 @@ class MongoDBStorage:
             "gold_answer": gold_answer,
             "final_answer": final_answer,
             "causal_flow_analysis_time_minutes": causal_flow_analysis_time_minutes,
-
-            "trace": trace_obj,
-            
-            "analysis": {
-                "causal_graph": analysis_results.get("causal_graph", {}),
-                "causal_attribution": analysis_results.get("causal_attribution", {}),
-                "final_repairs": final_repairs,
-                "multi_agent_critique": analysis_results.get("multi_agent_critique", {})
-            },
-
-            "metrics": {
-                "minimality": {
-                    "average": metrics['minimality_metrics'].get("average_minimality"),
-                    "min": metrics['minimality_metrics'].get("min_minimality"),
-                    "max": metrics['minimality_metrics'].get("max_minimality"),
-                    "by_step": metrics['minimality_metrics'].get("minimality_by_step", {})
-                },
-
-                "attribution": {
-                    "num_identified_causal_steps": metrics['causal_attribution_metrics'].get("num_identified_causal_steps"),
-                    "identified_steps": metrics['causal_attribution_metrics'].get("identified_steps", []),
-                    "precision": metrics['causal_attribution_metrics'].get("precision"),
-                    "recall": metrics['causal_attribution_metrics'].get("recall"),
-                    "f1_score": metrics['causal_attribution_metrics'].get("f1_score"),
-                    "true_positives": metrics['causal_attribution_metrics'].get("true_positives"),
-                    "false_positives": metrics['causal_attribution_metrics'].get("false_positives"),
-                    "false_negatives": metrics['causal_attribution_metrics'].get("false_negatives"),
-                    "num_ground_truth_causal_steps": metrics['causal_attribution_metrics'].get("num_ground_truth_causal_steps")
-                },
-
-                "repairs": {
-                    "total_repairs_attempted": metrics['repair_metrics'].get("total_repairs_attempted"),
-                    "successful_repairs": metrics['repair_metrics'].get("successful_repairs"),
-                    "failed_repairs": metrics['repair_metrics'].get("failed_repairs"),
-                    "success_rate": metrics['repair_metrics'].get("success_rate"),
-                    "repairs_by_step": metrics['repair_metrics'].get("repairs_by_step", {})
-                },
-
-                "multi_agent": {
-                    "average_consensus_score": metrics['multi_agent_agreement'].get("average_consensus_score"),
-                    "num_steps_critiqued": metrics['multi_agent_agreement'].get("num_steps_critiqued"),
-                    "steps_with_agreement": metrics['multi_agent_agreement'].get("steps_with_agreement", [])
-                },
-
-            },
+            "trace": compact_trace,
+            "analysis": compact_analysis,
+            "metrics": self._build_metrics_document(metrics),
         }
 
         self.runs.update_one(
@@ -216,7 +316,6 @@ class MongoDBStorage:
         print(f"Added failing trace for problem {problem_id}")
 
     def get_run(self, run_id: str) -> Optional[Dict[str, Any]]:
-
         return self.runs.find_one({"run_id": run_id})
 
     def update_run_statistics(
@@ -243,7 +342,6 @@ class MongoDBStorage:
         )
 
     def get_run_statistics(self, run_id: str) -> Dict[str, Any]:
-
         run = self.get_run(run_id)
         if not run:
             return {}
@@ -258,9 +356,9 @@ class MongoDBStorage:
             "failing_traces": stats.get("failing", 0),
             "fixed": stats.get("fixed", 0),
             "analyzed": stats.get("analyzed", 0),
-            "accuracy": stats.get("accuracy", stats.get("passing", 0) / stats.get("total", 1) if stats.get("total", 0) > 0 else 0)
+            "accuracy": stats.get("accuracy", 0)
         }
 
-    def close(self):
+    def close(self) -> None:
         self.client.close()
         print("MongoDB connection closed")

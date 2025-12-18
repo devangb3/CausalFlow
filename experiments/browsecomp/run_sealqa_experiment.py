@@ -14,7 +14,7 @@ from llm_client import LLMClient
 from mongodb_storage import MongoDBStorage
 from trace_logger import TraceLogger, StepType
 
-from experiments.browsecomp.browsecomp_eval import decrypt, load_browsecomp_examples, grade_response
+from experiments.browsecomp.browsecomp_eval import load_sealqa_examples, grade_response
 from experiments.browsecomp.browsecomp_agent import BrowseCompAgent
 from experiments.browsecomp.web_env import WebEnvironment
 
@@ -23,7 +23,7 @@ class BrowseCompExperiment:
     def __init__(
         self,
         api_key: str,
-        solver_model: str = "google/gemini-2.5-flash",
+        solver_model: str = "google/gemini-3-flash-preview",
         search_api_key: Optional[str] = None,
         max_steps: int = 15,
     ):
@@ -61,11 +61,11 @@ class BrowseCompExperiment:
     ) -> Dict[str, Any]:
         experiment_start_time = time.time()
         
-        examples = load_browsecomp_examples(num_examples=num_examples)
-        print(f"Running BrowseComp on {len(examples)} examples")
+        examples = load_sealqa_examples(num_examples=num_examples)
+        print(f"Running SealQA on {len(examples)} examples")
         
         run_id = self.mongo_storage.create_run(
-            experiment_name="BrowseComp",
+            experiment_name="SealQA",
             num_problems=len(examples),
         )
         
@@ -80,120 +80,127 @@ class BrowseCompExperiment:
         
         results: List[Dict[str, Any]] = []
         
-        for idx, row in enumerate(tqdm(examples, desc="Solving BrowseComp")):
-            problem_id = f"browsecomp_{idx}"
+        for idx, row in enumerate(tqdm(examples, desc="Solving SealQA")):
+            problem_id = f"sealqa_{idx}"
             
             try:
-                question = decrypt(row.get("problem", ""), row.get("canary", ""))
-                gold_answer = decrypt(row.get("answer", ""), row.get("canary", ""))
-            except Exception as e:
-                print(f"\nError decrypting example {idx}: {e}")
-                stats["errors"] += 1
-                continue
-            
-            print(f"\n[{idx + 1}/{len(examples)}]")
-            
-            try:
-                trace: TraceLogger = self.agent.solve(
-                    problem_id=problem_id,
-                    question=question,
-                    gold_answer=gold_answer,
-                )
-            except Exception as e:
-                print(f"Error solving {problem_id}: {e}")
-                stats["errors"] += 1
-                continue
-            
-            agent_response = trace.final_answer or ""
-                        
-            trace.success = grade_response(gold_answer, agent_response, self.solver_llm) if trace.final_answer else False
-            
-            result_entry = {
-                "problem_id": problem_id,
-                "question": question,
-                "gold_answer": gold_answer,
-                "agent_response": agent_response,
-                "is_correct": trace.success,
-                "num_steps": len(trace.steps),
-            }
-            
-            if trace.success:
-                stats["correct"] += 1
-                print(f"CORRECT ({len(trace.steps)} steps)")
-                
-                self.mongo_storage.add_passing_trace(
-                    run_id=run_id,
-                    trace_data=trace.to_json(),
-                    problem_id=problem_id,
-                    problem_statement=question,
-                    gold_answer=gold_answer,
-                    final_answer=agent_response,
-                )
-            else:
-                stats["incorrect"] += 1
-                
-                causal_flow_analysis_time_minutes: Optional[float] = None
-                causal_flow_start_time = time.time()
                 try:
-                    web_logs = self._extract_web_logs(trace)
-                    execution_context = {
-                        "question": question,
-                        "gold_answer": gold_answer,
-                        "agent_final_answer": agent_response,
-                        "logs": web_logs,
-                        "problem_id": problem_id,
-                    }
-                    
-                    analysis = self.causal_flow.analyze_trace(
-                        trace,
-                        reexecutor=self.agent,
-                        execution_context=execution_context,
-                        skip_critique=skip_critique,
-                        intervene_step_types={StepType.TOOL_CALL, StepType.LLM_RESPONSE, StepType.REASONING},
-                    )
-                    causal_flow_analysis_time_seconds = time.time() - causal_flow_start_time
-                    causal_flow_analysis_time_minutes = causal_flow_analysis_time_seconds / 60.0
-                    
-                    stats["analyzed"] += 1
-                    
-                    repair_metrics = analysis.get("metrics", {}).get("repair_metrics", {})
-                    if repair_metrics.get("successful_repairs", 0) > 0:
-                        stats["repair_success"] += 1
-                    
-                    result_entry["analysis"] = analysis
-                    
-                    self.mongo_storage.add_failing_trace(
-                        run_id=run_id,
-                        trace_data=trace.to_json(),
-                        problem_id=problem_id,
-                        problem_statement=question,
-                        gold_answer=gold_answer,
-                        final_answer=agent_response,
-                        analysis_results=analysis,
-                        metrics=analysis.get("metrics"),
-                        causal_flow_analysis_time_minutes=causal_flow_analysis_time_minutes,
-                    )
-                    
+                    question = row.get("question", "")
+                    gold_answer = row.get("answer", "")
                 except Exception as e:
-                    if causal_flow_analysis_time_minutes is None:
+                    print(f"\nError decrypting example {idx}: {e}")
+                    stats["errors"] += 1
+                    continue
+                
+                print(f"\n[{idx + 1}/{len(examples)}]")
+                
+                try:
+                    trace: TraceLogger = self.agent.solve(
+                        problem_id=problem_id,
+                        question=question,
+                        gold_answer=gold_answer,
+                    )
+                except Exception as e:
+                    print(f"Error solving {problem_id}: {e}")
+                    stats["errors"] += 1
+                    continue
+                
+                agent_response = trace.final_answer or ""
+                
+                try:
+                    trace.success = grade_response(gold_answer, agent_response, self.solver_llm) if trace.final_answer else False
+                except Exception as e:
+                    print(f"Error grading response for {problem_id}: {e}")
+                    trace.success = False
+                
+                result_entry: Dict[str, Any] = {
+                    "problem_id": problem_id,
+                    "question": question,
+                    "gold_answer": gold_answer,
+                    "agent_response": agent_response,
+                    "is_correct": trace.success,
+                    "num_steps": len(trace.steps),
+                }
+                
+                if trace.success:
+                    stats["correct"] += 1
+                    print(f"CORRECT ({len(trace.steps)} steps)")
+                    
+                    try:
+                        self.mongo_storage.add_passing_trace(
+                            run_id=run_id,
+                            trace_data=trace.to_json(),
+                            problem_id=problem_id,
+                            problem_statement=question,
+                            gold_answer=gold_answer,
+                            final_answer=agent_response,
+                        )
+                    except Exception as e:
+                        print(f"Error storing passing trace for {problem_id}: {e}")
+                else:
+                    stats["incorrect"] += 1
+                    
+                    causal_flow_analysis_time_minutes: Optional[float] = None
+                    causal_flow_start_time = time.time()
+                    analysis: Optional[Dict[str, Any]] = None
+                    
+                    try:
+                        web_logs = self._extract_web_logs(trace)
+                        execution_context = {
+                            "question": question,
+                            "gold_answer": gold_answer,
+                            "agent_final_answer": agent_response,
+                            "logs": web_logs,
+                            "problem_id": problem_id,
+                        }
+                        
+                        analysis = self.causal_flow.analyze_trace(
+                            trace,
+                            reexecutor=self.agent,
+                            execution_context=execution_context,
+                            skip_critique=skip_critique,
+                            intervene_step_types={StepType.TOOL_CALL, StepType.LLM_RESPONSE, StepType.REASONING},
+                        )
                         causal_flow_analysis_time_seconds = time.time() - causal_flow_start_time
                         causal_flow_analysis_time_minutes = causal_flow_analysis_time_seconds / 60.0
-                    print(f"CausalFlow analysis error for {problem_id}: {e}")
-                    result_entry["analysis_error"] = str(e)
+                        
+                        stats["analyzed"] += 1
+                        
+                        repair_metrics = analysis.get("metrics", {}).get("repair_metrics", {})
+                        if repair_metrics.get("successful_repairs", 0) > 0:
+                            stats["repair_success"] += 1
+                        
+                        result_entry["analysis"] = analysis
+                        
+                    except Exception as e:
+                        if causal_flow_analysis_time_minutes is None:
+                            causal_flow_analysis_time_seconds = time.time() - causal_flow_start_time
+                            causal_flow_analysis_time_minutes = causal_flow_analysis_time_seconds / 60.0
+                        print(f"CausalFlow analysis error for {problem_id}: {e}")
+                        result_entry["analysis_error"] = str(e)
                     
-                    self.mongo_storage.add_failing_trace(
-                        run_id=run_id,
-                        trace_data=trace.to_json(),
-                        problem_id=problem_id,
-                        problem_statement=question,
-                        gold_answer=gold_answer,
-                        final_answer=agent_response,
-                        analysis_results={},
-                        metrics={},
-                        causal_flow_analysis_time_minutes=causal_flow_analysis_time_minutes,
-                    )
-            
-            results.append(result_entry)
+                    try:
+                        self.mongo_storage.add_failing_trace(
+                            run_id=run_id,
+                            trace_data=trace.to_json(),
+                            problem_id=problem_id,
+                            problem_statement=question,
+                            gold_answer=gold_answer,
+                            final_answer=agent_response,
+                            analysis_results=analysis if analysis else {},
+                            metrics=analysis.get("metrics") if analysis else {},
+                            causal_flow_analysis_time_minutes=causal_flow_analysis_time_minutes,
+                        )
+                    except Exception as e:
+                        print(f"Error storing failing trace for {problem_id}: {e}")
+                
+                results.append(result_entry)
+                
+            except Exception as e:
+                print(f"\n[CRITICAL] Unexpected error processing example {idx} ({problem_id}): {e}")
+                print("Skipping this example and continuing with the rest")
+                stats["errors"] += 1
+                continue
         
         accuracy = stats["correct"] / stats["total"] if stats["total"] > 0 else 0.0
         total_experiment_time = time.time() - experiment_start_time
@@ -231,16 +238,7 @@ class BrowseCompExperiment:
         }
     
     def _extract_web_logs(self, trace: TraceLogger, max_chars: int = 15000) -> str:
-        """
-        Extract web logs from trace, limiting total size to prevent payload size errors.
-        
-        Args:
-            trace: The execution trace containing web tool calls
-            max_chars: Maximum number of characters to include in logs (default: 15000)
-        
-        Returns:
-            Concatenated web logs, truncated if necessary (most recent logs prioritized)
-        """
+
         web_logs: List[Dict[str, Any]] = []
         
         for step in trace.steps:
@@ -316,7 +314,7 @@ def main():
     
     experiment = BrowseCompExperiment(
         api_key=api_key,
-        solver_model="openai/gpt-5-nano",
+        solver_model="google/gemini-3-flash-preview",
         search_api_key=search_api_key,
         max_steps=15,
     )

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 import pandas
+from datasets import load_dataset
 from llm_client import LLMClient
 
 from . import common
@@ -75,6 +76,23 @@ def load_browsecomp_examples(
     
     return examples
 
+def load_sealqa_examples(
+    num_examples: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+
+    try:
+        dataset = load_dataset('vtllms/sealqa', 'seal_hard', split='test')
+        data = [{'question': item['question'], 'answer': item['answer']} for item in dataset]
+        print(f"Loaded {len(data)} examples from HuggingFace")
+    except Exception as e:
+        print(f"Failed to load from HuggingFace: {e}")
+        raise e
+
+    if num_examples:
+        rng = random.Random(42)
+        data = rng.sample(data, min(num_examples, len(data)))
+
+    return data
 
 def grade_response(correct_answer: str, response: str, llm: LLMClient) -> bool:
     grader_prompt = GRADER_TEMPLATE.format(
@@ -97,7 +115,7 @@ class BrowseCompEval(Eval):
         grader_model: SamplerBase,
         num_examples: Optional[int] = None,
     ):
-        self.examples = load_browsecomp_examples(
+        self.examples = load_sealqa_examples(
             num_examples=num_examples,
         )
         self.grader_model = grader_model

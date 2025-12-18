@@ -91,7 +91,7 @@ class CausalAttribution:
                 intervention_prompt,
                 schema_name="intervention",
                 system_message="You are an expert at debugging and correcting agent reasoning steps. Always respond using the provided schema in JSON format.",
-                model_name="anthropic/claude-haiku-4.5"
+                model_name="google/gemini-3-flash-preview"
             )
 
             intervened_step = copy.deepcopy(step)
