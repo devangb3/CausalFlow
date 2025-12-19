@@ -91,7 +91,7 @@ class CausalAttribution:
                 intervention_prompt,
                 schema_name="intervention",
                 system_message="You are an expert at debugging and correcting agent reasoning steps. Always respond using the provided schema in JSON format.",
-                model_name="google/gemini-3-flash-preview"
+                model_name=self.llm_client.model
             )
 
             intervened_step = copy.deepcopy(step)
@@ -220,7 +220,7 @@ Descendants of this step (affected by the intervention):
                 prompt,
                 schema_name="outcome_prediction",
                 temperature=0.0,
-                model_name="openai/gpt-5.2"
+                model_name=self.llm_client.model
             )
             return result.would_succeed
         except Exception as e:

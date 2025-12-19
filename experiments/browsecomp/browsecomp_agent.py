@@ -298,7 +298,7 @@ Important guidelines:
                     prompt,
                     schema_name="browsecomp_step",
                     system_message=self.SYSTEM_PROMPT,
-                    temperature=0.0,
+                    temperature=0.3,
                 )
             except Exception as e:
                 trace.log_reasoning(

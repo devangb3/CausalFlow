@@ -131,19 +131,26 @@ class CausalFlow:
         }
 
         if self.counterfactual_repair:
-            best_repairs = self.counterfactual_repair.get_all_best_repairs()
+            successful_repairs = self.counterfactual_repair.get_all_successful_repairs()
+            compiled_repairs: Dict[str, Dict[str, Any]] = {}
+            for step_id, repair_list in successful_repairs.items():
+                if repair_list:
+                    best_repair = repair_list[0]
+                    repair_entry: Dict[str, Any] = {
+                        "minimality_score": best_repair.minimality_score,
+                        "success_predicted": best_repair.success_predicted,
+                        "original_step": best_repair.original_step.to_dict(),
+                        "repaired_step": best_repair.repaired_step.to_dict(),
+                    }
+                    # Include full repaired trace for successful repairs
+                    if best_repair.success_predicted and best_repair.repaired_trace is not None:
+                        repair_entry["repaired_trace"] = best_repair.repaired_trace.to_dict()
+                    compiled_repairs[str(step_id)] = repair_entry
+            
             results["counterfactual_repair"] = {
                 "num_steps_repaired": len(repairs) if repairs else 0,
-                "num_successful_repairs": len(best_repairs) if best_repairs else 0,
-                "best_repairs": {
-                    step_id: {
-                        "minimality_score": repair.minimality_score if repair else 0.0,
-                        "success_predicted": repair.success_predicted if repair else False,
-                        "original_step": repair.original_step.to_dict(),
-                        "repaired_step": repair.repaired_step.to_dict()
-                    }
-                    for step_id, repair in best_repairs.items()
-                }
+                "num_successful_repairs": len(successful_repairs) if successful_repairs else 0,
+                "successful_repairs": compiled_repairs
             }
 
         # Add critique results if available
@@ -170,7 +177,7 @@ class CausalFlow:
 
         return results
 
-    def generate_metrics(
+    def generate_metrics( #TODO: Fix division by zero errors
         self,
         consensus_steps: List[Step],
         skip_critique: bool = False
@@ -236,7 +243,7 @@ class CausalFlow:
         }
 
         if self.counterfactual_repair:
-            best_repairs = self.counterfactual_repair.get_all_best_repairs()
+            successful_repairs = self.counterfactual_repair.get_all_successful_repairs()
             all_repairs = self.counterfactual_repair.repairs
 
             total = sum(len(repair_list) for repair_list in all_repairs.values())
@@ -253,10 +260,11 @@ class CausalFlow:
                 "success_rate": round(successful / total, 4) if total > 0 else 0.0,
                 "repairs_by_step": {
                     step_id: {
-                        "success": repair.success_predicted,
-                        "minimality_score": round(repair.minimality_score, 4)
+                        "success": repair_list[0].success_predicted if repair_list else False,
+                        "minimality_score": round(repair_list[0].minimality_score, 4) if repair_list else 0.0
                     }
-                    for step_id, repair in best_repairs.items()
+                    for step_id, repair_list in successful_repairs.items()
+                    if repair_list
                 }
             })
 
@@ -271,16 +279,17 @@ class CausalFlow:
         }
 
         if self.counterfactual_repair:
-            best_repairs = self.counterfactual_repair.get_all_best_repairs()
-            if best_repairs:
-                minimality_scores = [r.minimality_score for r in best_repairs.values()]
+            successful_repairs = self.counterfactual_repair.get_all_successful_repairs()
+            if successful_repairs:
+                minimality_scores = [r.minimality_score for repair in successful_repairs.values() for r in repair]
                 minimality_metrics.update({
                     "average_minimality": round(sum(minimality_scores) / len(minimality_scores), 4),
                     "min_minimality": round(min(minimality_scores), 4),
                     "max_minimality": round(max(minimality_scores), 4),
                     "minimality_by_step": {
-                        step_id: round(repair.minimality_score, 4)
-                        for step_id, repair in best_repairs.items()
+                        step_id: round(repair_list[0].minimality_score, 4) if repair_list else 0.0
+                        for step_id, repair_list in successful_repairs.items()
+                        if repair_list
                     }
                 })
 

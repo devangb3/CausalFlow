@@ -159,17 +159,21 @@ class MongoDBStorage:
                 "num_successful_repairs": cf_repair.get("num_successful_repairs"),
             }
             
-            if "best_repairs" in cf_repair:
+            if "successful_repairs" in cf_repair:
                 compact_repairs: Dict[str, Any] = {}
-                for step_id, repair_data in cf_repair["best_repairs"].items():
+                for step_id, repair_data in cf_repair["successful_repairs"].items():
                     if isinstance(repair_data, dict):
-                        compact_repairs[str(step_id)] = {
+                        repair_entry: Dict[str, Any] = {
                             "minimality_score": repair_data.get("minimality_score"),
                             "success_predicted": repair_data.get("success_predicted"),
                             "original_step": self._compact_step(repair_data.get("original_step", {})),
                             "repaired_step": self._compact_step(repair_data.get("repaired_step", {})),
                         }
-                compact_cf["best_repairs"] = compact_repairs
+                        # Include full repaired trace for successful repairs (not compacted)
+                        if repair_data.get("success_predicted") and repair_data.get("repaired_trace"):
+                            repair_entry["repaired_trace"] = repair_data["repaired_trace"]
+                        compact_repairs[str(step_id)] = repair_entry
+                compact_cf["successful_repairs"] = compact_repairs
             
             compact["counterfactual_repair"] = compact_cf
         

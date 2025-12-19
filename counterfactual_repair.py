@@ -16,7 +16,8 @@ class Repair:
         original_step: Step,
         repaired_step: Step,
         minimality_score: float,
-        success_predicted: bool
+        success_predicted: bool,
+        repaired_trace: Optional["TraceLogger"] = None
     ):
 
         self.step_id = step_id #The step being repaired
@@ -24,15 +25,20 @@ class Repair:
         self.repaired_step = repaired_step #The repaired step
         self.minimality_score = minimality_score #Score indicating how minimal the edit is (0-1)
         self.success_predicted = success_predicted #Whether this repair is predicted to succeed
+        self.repaired_trace = repaired_trace #Full trace after applying repair (only for successful repairs with reexecutor)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result: Dict[str, Any] = {
             "step_id": self.step_id,
             "original_step": self.original_step.to_dict(),
             "repaired_step": self.repaired_step.to_dict(),
             "minimality_score": self.minimality_score,
             "success_predicted": self.success_predicted
         }
+        # Include full repaired trace for successful repairs
+        if self.success_predicted and self.repaired_trace is not None:
+            result["repaired_trace"] = self.repaired_trace.to_dict()
+        return result
 
 class CounterfactualRepair:
     def __init__(
@@ -100,7 +106,7 @@ class CounterfactualRepair:
                                     Always respond using the provided schema in JSON format.
                                     """,
                     temperature=0.7,
-                    model_name="google/gemini-3-flash-preview"
+                    model_name=self.llm_client.model
                 )
 
                 repaired_step = self._apply_repair(original_step, result)
@@ -111,14 +117,17 @@ class CounterfactualRepair:
                 )
 
                 # Evaluate repair success deterministically if reexecutor is available, otherwise predict
-                success_predicted = self._evaluate_repair_success(step_id, repaired_step, execution_context=self.execution_context)
+                success_predicted, repaired_trace = self._evaluate_repair_success(
+                    step_id, repaired_step, execution_context=self.execution_context
+                )
 
                 repair = Repair(
                     step_id=step_id,
                     original_step=original_step,
                     repaired_step=repaired_step,
                     minimality_score=minimality,
-                    success_predicted=success_predicted
+                    success_predicted=success_predicted,
+                    repaired_trace=repaired_trace
                 )
 
                 proposals.append(repair)
@@ -306,44 +315,50 @@ GOOD: Updating reasoning to "Need to check publication dates between 1990-2005, 
 
         return repaired_step
 
-    def _evaluate_repair_success(self, step_id: int, repaired_step: Step, execution_context: Optional[Dict[str, Any]] = None) -> bool:
+    def _evaluate_repair_success(
+        self, step_id: int, repaired_step: Step, execution_context: Optional[Dict[str, Any]] = None
+    ) -> tuple[bool, Optional[TraceLogger]]:
         """
         Evaluate repair success by re-executing with the repaired step.
 
         If an agent is provided, build a history up to and including the repaired
         step, then call agent.run_remaining_steps() to continue execution and
         observe the actual outcome.
+
+        Returns:
+            A tuple of (success_predicted, repaired_trace).
+            repaired_trace is only populated for successful repairs when a reexecutor is available.
         """
         if self.reexecutor is None:
-            return self.causal_attribution._llm_predict_outcome(
+            success = self.causal_attribution._llm_predict_outcome(
                 step_id, repaired_step, self.trace.problem_statement
             )
+            return (success, None)
 
         # Build history: all steps before step_id + the repaired step
         history = [copy.deepcopy(step) for step in self.trace.steps if step.step_id < step_id]
         history.append(repaired_step)
 
         new_trace = self.reexecutor.run_remaining_steps(history)
-        return new_trace.success
+        # Return trace only for successful repairs to save storage
+        if new_trace.success:
+            return (True, new_trace)
+        return (False, None)
 
-    def get_best_repair(self, step_id: int) -> Optional[Repair]:
+    def get_successful_repairs(self, step_id: int) -> List[Repair]:
         if step_id not in self.repairs:
-            return None
+            return []
 
         successful = [r for r in self.repairs[step_id] if r.success_predicted]
+        return successful
 
-        if not successful:
-            return None
+    def get_all_successful_repairs(self) -> Dict[int, List[Repair]]:
 
-        return max(successful, key=lambda r: r.minimality_score)
-
-    def get_all_best_repairs(self) -> Dict[int, Repair]:
-
-        best_repairs = {}
+        successful_repairs = {}
 
         for step_id in self.repairs.keys():
-            best_repair = self.get_best_repair(step_id)
-            if best_repair is not None:
-                best_repairs[step_id] = best_repair
+            repairs = self.get_successful_repairs(step_id)
+            if repairs is not None:
+                successful_repairs[step_id] = repairs
         
-        return best_repairs
+        return successful_repairs
