@@ -87,6 +87,7 @@ class MedBrowseCompExperiment:
         run_id = self.mongo_storage.create_run(
             experiment_name="MedBrowseComp",
             num_problems=len(examples),
+            model_used=self.solver_model,
         )
         
         stats: Dict[str, int] = {
@@ -327,13 +328,13 @@ def main():
     
     experiment = MedBrowseCompExperiment(
         api_key=api_key,
-        solver_model="openai/gpt-5.2",
+        solver_model="x-ai/grok-4.1-fast",
         search_api_key=search_api_key,
         max_steps=15,
     )
     
     results = experiment.run(
-        num_examples=30,
+        num_examples=None,
         skip_critique=True,
     )
     

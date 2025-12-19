@@ -177,7 +177,7 @@ class CausalFlow:
 
         return results
 
-    def generate_metrics( #TODO: Fix division by zero errors
+    def generate_metrics(
         self,
         consensus_steps: List[Step],
         skip_critique: bool = False
@@ -282,16 +282,17 @@ class CausalFlow:
             successful_repairs = self.counterfactual_repair.get_all_successful_repairs()
             if successful_repairs:
                 minimality_scores = [r.minimality_score for repair in successful_repairs.values() for r in repair]
-                minimality_metrics.update({
-                    "average_minimality": round(sum(minimality_scores) / len(minimality_scores), 4),
-                    "min_minimality": round(min(minimality_scores), 4),
-                    "max_minimality": round(max(minimality_scores), 4),
-                    "minimality_by_step": {
-                        step_id: round(repair_list[0].minimality_score, 4) if repair_list else 0.0
-                        for step_id, repair_list in successful_repairs.items()
-                        if repair_list
-                    }
-                })
+                if minimality_scores:
+                    minimality_metrics.update({
+                        "average_minimality": round(sum(minimality_scores) / len(minimality_scores), 4),
+                        "min_minimality": round(min(minimality_scores), 4),
+                        "max_minimality": round(max(minimality_scores), 4),
+                        "minimality_by_step": {
+                            step_id: round(repair_list[0].minimality_score, 4) if repair_list else 0.0
+                            for step_id, repair_list in successful_repairs.items()
+                            if repair_list
+                        }
+                    })
 
         metrics["minimality_metrics"] = minimality_metrics
 

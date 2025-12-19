@@ -211,7 +211,8 @@ class MongoDBStorage:
     def create_run(
         self,
         experiment_name: str,
-        num_problems: int
+        num_problems: int,
+        model_used: str,
     ) -> str:
 
         timestamp = datetime.utcnow().isoformat()
@@ -222,6 +223,7 @@ class MongoDBStorage:
             "experiment_name": experiment_name,
             "timestamp": timestamp,
             "num_problems": num_problems,
+            "model_used": model_used,
             "passing_traces": [],
             "failing_traces": [],
             "stats": {
