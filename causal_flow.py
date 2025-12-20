@@ -281,6 +281,7 @@ class CausalFlow:
         if self.counterfactual_repair:
             successful_repairs = self.counterfactual_repair.get_all_successful_repairs()
             if successful_repairs:
+                print(f"Successful repairs: {len(successful_repairs)}")
                 minimality_scores = [r.minimality_score for repair in successful_repairs.values() for r in repair]
                 if minimality_scores:
                     minimality_metrics.update({

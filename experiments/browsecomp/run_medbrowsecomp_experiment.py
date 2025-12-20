@@ -328,9 +328,9 @@ def main():
     
     experiment = MedBrowseCompExperiment(
         api_key=api_key,
-        solver_model="x-ai/grok-4.1-fast",
+        solver_model="google/gemini-3-flash-preview",
         search_api_key=search_api_key,
-        max_steps=15,
+        max_steps=10,
     )
     
     results = experiment.run(
