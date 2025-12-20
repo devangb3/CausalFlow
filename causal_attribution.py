@@ -220,7 +220,7 @@ Descendants of this step (affected by the intervention):
                 prompt,
                 schema_name="outcome_prediction",
                 temperature=0.0,
-                model_name=self.llm_client.model
+                model_name="google/gemini-3-flash-preview" #Use a bigger model for GSM8K experiment
             )
             return result.would_succeed
         except Exception as e:

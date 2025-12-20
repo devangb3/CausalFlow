@@ -177,6 +177,54 @@ class MongoDBStorage:
             
             compact["counterfactual_repair"] = compact_cf
         
+        # Keep multi_agent_critique with full judge ensemble output
+        if "multi_agent_critique" in analysis_results:
+            mac = analysis_results["multi_agent_critique"]
+            compact_mac: Dict[str, Any] = {
+                "skipped": mac.get("skipped", False),
+            }
+            
+            if mac.get("skipped"):
+                compact_mac["reason"] = mac.get("reason", "")
+            else:
+                compact_mac["num_steps_critiqued"] = mac.get("num_steps_critiqued", 0)
+                
+                # Store full critique details including judge ensemble reasoning
+                if "critique_details" in mac:
+                    compact_critiques: Dict[str, Any] = {}
+                    for step_id, critique_data in mac["critique_details"].items():
+                        if isinstance(critique_data, dict):
+                            critique_entry: Dict[str, Any] = {
+                                "step_id": critique_data.get("step_id"),
+                                "proposed_by": critique_data.get("proposed_by"),
+                                "consensus_score": critique_data.get("consensus_score"),
+                                "final_verdict": critique_data.get("final_verdict"),
+                                "num_critiques": critique_data.get("num_critiques"),
+                                "judge_ensemble": []
+                            }
+                            # Include full judge ensemble output (reasoning from each agent)
+                            for judge in critique_data.get("judge_ensemble", []):
+                                judge_entry: Dict[str, Any] = {
+                                    "agent": judge.get("agent"),
+                                    "role": judge.get("role"),
+                                    "agrees": judge.get("agrees"),
+                                    "confidence": judge.get("confidence"),
+                                    "reasoning": self._truncate(judge.get("reasoning", ""), TEXT_MAX_CHARS),
+                                    "agreement": judge.get("agreement"),
+                                    "evidence_strength": judge.get("evidence_strength"),
+                                }
+                                critique_entry["judge_ensemble"].append(judge_entry)
+                            compact_critiques[str(step_id)] = critique_entry
+                    compact_mac["critique_details"] = compact_critiques
+            
+            # Compact consensus_steps if present
+            if "consensus_steps" in mac:
+                compact_mac["consensus_steps"] = [
+                    self._compact_step(step) for step in mac["consensus_steps"]
+                ]
+            
+            compact["multi_agent_critique"] = compact_mac
+        
         return compact
 
     def _build_metrics_document(self, metrics: Optional[Dict[str, Any]]) -> Dict[str, Any]:

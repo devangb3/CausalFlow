@@ -99,7 +99,7 @@ class MultiAgentCritique:
             step_id,
             agent_index=2,
             role="meta-critic",
-            model_name="google/gemini-2.5-flash",
+            model_name="openai/gpt-5.1",
             previous_critique=critique_b["response"]
         )
         critiques.append({
@@ -127,7 +127,7 @@ class MultiAgentCritique:
         step_id: int,
         agent_index: int,
         role: str,
-        model_name: Optional[str] = "google/gemini-2.5-flash",
+        model_name: Optional[str] = "anthropic/claude-haiku-4.5",
         previous_critique: Optional[str] = None
     ) -> Dict[str, Any]:
 

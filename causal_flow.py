@@ -161,18 +161,37 @@ class CausalFlow:
                 "consensus_steps": [step.to_dict() for step in consensus_steps] if consensus_steps else []
             }
         elif self.multi_agent_critique:
+            # Build full critique details including judge ensemble output
+            critique_details: Dict[str, Dict[str, Any]] = {}
+            for step_id, critique in critiques.items():
+                if critique:
+                    critique_entry: Dict[str, Any] = {
+                        "step_id": critique.step_id,
+                        "proposed_by": critique.proposed_by,
+                        "consensus_score": critique.consensus_score,
+                        "final_verdict": critique.final_verdict,
+                        "num_critiques": len(critique.critiques),
+                        "judge_ensemble": []  # Full output from each judge
+                    }
+                    # Store full critique from each judge agent
+                    for agent_critique in critique.critiques:
+                        judge_output: Dict[str, Any] = {
+                            "agent": agent_critique.get("agent", "unknown"),
+                            "role": agent_critique.get("role", "unknown"),
+                            "agrees": agent_critique.get("agrees", False),
+                            "confidence": agent_critique.get("confidence", 0.0),
+                            "reasoning": agent_critique.get("response", ""),
+                            "agreement": agent_critique.get("agreement", ""),
+                            "evidence_strength": agent_critique.get("evidence_strength", ""),
+                        }
+                        critique_entry["judge_ensemble"].append(judge_output)
+                    critique_details[str(step_id)] = critique_entry
+
             results["multi_agent_critique"] = {
                 "skipped": False,
                 "num_steps_critiqued": len(critiques) if critiques else 0,
                 "consensus_steps": [step.to_dict() for step in consensus_steps] if consensus_steps else [],
-                "critique_details": {
-                    step_id: {
-                        "consensus_score": critique.consensus_score if critique else 0.0,
-                        "final_verdict": critique.final_verdict if critique else False,
-                        "num_critiques": len(critique.critiques) if critique else 0
-                    }
-                    for step_id, critique in critiques.items() if critique
-                }
+                "critique_details": critique_details
             }
 
         return results
