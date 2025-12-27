@@ -99,6 +99,29 @@ class CritiqueOutput(BaseModel):
     )
 
 
+class SkillAttributionOutput(BaseModel):
+    """Schema for mapping a causal step to an underlying skill."""
+
+    skill_label: str = Field(
+        ...,
+        description="Short, general label for the underlying skill (2-4 words)"
+    )
+    skill_description: str = Field(
+        ...,
+        description="1-2 sentence description of the skill and typical failure pattern"
+    )
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence in the skill attribution between 0.0 and 1.0"
+    )
+    rationale: str = Field(
+        ...,
+        description="Brief rationale grounded in the step content"
+    )
+
+
 class ToolArgsOutput(BaseModel):
     """Schema for parsing tool arguments from text."""
 
@@ -194,6 +217,7 @@ class LLMSchemas:
         "outcome_prediction": OutcomePrediction,
         "repair": RepairOutput,
         "critique": CritiqueOutput,
+        "skill_attribution": SkillAttributionOutput,
         "tool_args": ToolArgsOutput,
         "gsm8k_solution": GSM8KSolution,
         "browsecomp_step": BrowseCompAgentStep,

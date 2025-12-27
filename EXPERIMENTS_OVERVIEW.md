@@ -23,7 +23,7 @@
 ## Results Snapshot (from provided sheet)
 | Experiment | Dataset | Model used | Total | Passed | Failed | CausalFlow fixes | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| GSM8K | https://huggingface.co/datasets/openai/gsm8k/viewer/main/test | google/gemini-2.0 | 1319 | – | – | – | Used LLM as predictor; deterministic repair was impractical. |
+| GSM8K | https://huggingface.co/datasets/openai/gsm8k/viewer/main/test | google/gemini-2.0 | 1319 | 989 | 330 | 173 | Used LLM as predictor; deterministic repair was impractical. |
 | MBPP | https://huggingface.co/datasets/Muennighoff/mbpp | GPT 5 Chat | 947 | 523 | 488 | 201 | Deterministic docker reexecution; critique skipped. |
 | Seal QA Hard | https://huggingface.co/datasets/vtllms/sealqa/viewer/seal_hard | Gemini 3 Flash | 254 | 108 | 146 | 32 | Web-search agent with LLM grading. |
 | Med BrowseComp | https://huggingface.co/datasets/AIM-Harvard/MedBrowseComp_CUA | Gemini 3 Flash | 484 | 149 | 335 | 149 | Web-search agent with medical domain queries. |

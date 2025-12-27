@@ -85,7 +85,7 @@ class MultiAgentCritique:
         critiques = []
 
         # Agent B (first critic)
-        critique_b = self._generate_critique(step_id, agent_index=1, role="critic", model_name="google/gemini-2.5-flash")
+        critique_b = self._generate_critique(step_id, agent_index=1, role="critic", model_name="anthropic/claude-haiku-4.5")
         critiques.append({
             "agent": "Agent_B",
             "role": "critic",

@@ -1,0 +1,140 @@
+{
+  "2f40d6b370283e9f4160c4649481a50d5bba6a17378c3cf4a7a7c40f2e5e6ec0": {
+    "skill_label": "algorithmic strategy selection",
+    "skill_description": "The ability to identify and implement the correct algorithmic paradigm for a specific problem constraint. Failure occurs when a greedy approach is applied to a problem requiring dynamic programming or more complex optimization.",
+    "confidence": 0.9,
+    "rationale": "The agent implemented a greedy interval scheduling algorithm which only works if the chain condition is strictly based on non-overlapping end times, but the problem of finding the longest chain in a set of pairs typically requires dynamic programming to account for all valid subsequences."
+  },
+  "c08ac7c78448a52ba13167160219e2766223335ecaa39723b4418d17a482218f": {
+    "skill_label": "algorithmic implementation accuracy",
+    "skill_description": "The ability to translate a logical requirement into a correct code implementation. Failure occurs when the logic is sound but the implementation fails to account for specific edge cases or return requirements defined in the prompt.",
+    "confidence": 0.9,
+    "rationale": "The agent provided a standard implementation for finding a repeated character, but the step lacks the verification phase (running tests) requested in the initial reasoning step, and the implementation itself is a direct code generation without validation."
+  },
+  "bb359872234ef6097c667c3d957be9f8bcdeb72c856a7a4d9fb771ab6f7d7a7a": {
+    "skill_label": "code completion integrity",
+    "skill_description": "The ability to generate a complete, syntactically valid code block without premature truncation. Failure occurs when the model stops generating mid-expression or mid-statement, leaving the output unusable.",
+    "confidence": 0.95,
+    "rationale": "The agent's response ends abruptly with an ellipsis in the middle of an assertion statement, failing to provide a complete and executable code block."
+  },
+  "810f3c397bcdb8841b36d2df297fc8834782f5533b3151bae66d82d9b8da18d3": {
+    "skill_label": "Task Decomposition",
+    "skill_description": "The ability to break down a high-level objective into granular, actionable sub-steps or logical components. Failure occurs when an agent attempts to execute a complex goal in a single jump without defining the intermediate logic or implementation details.",
+    "confidence": 0.85,
+    "rationale": "The agent immediately jumps to a high-level implementation command without first outlining the logic, constraints, or algorithmic approach required to solve the specific programming problem."
+  },
+  "d544eb3146ae75e052d449ba0e143dba3311ff2de8e59f672d090e70374c8c64": {
+    "skill_label": "Task Decomposition",
+    "skill_description": "The ability to break down a high-level objective into a sequence of actionable sub-tasks or implementation steps. Failure occurs when an agent attempts to execute a complex goal in a single step without defining the logic or intermediate milestones.",
+    "confidence": 0.85,
+    "rationale": "The agent's first step is a generic restatement of the goal rather than a plan or a specific implementation strategy, indicating a failure to decompose the programming task into logical components."
+  },
+  "9521587fb7312785cc944b47051918c2ca73563d2754fc53809cffa682a3438d": {
+    "skill_label": "structural schema inference",
+    "skill_description": "The ability to correctly interpret the data structure and access patterns described in a natural language prompt. Failure occurs when the code implementation assumes a specific nesting or indexing pattern that does not align with the provided description.",
+    "confidence": 0.85,
+    "rationale": "The agent attempted to implement the logic by assuming the second element of each tuple is a list (record[1]), which is a specific structural assumption that may not generalize or correctly map to the 'tuple attribute' description in the prompt."
+  },
+  "4d81c57207d1f7800de459d792e7feeed2616e0c9e999fa54a41a6eeb70fee6b": {
+    "skill_label": "task decomposition",
+    "skill_description": "The ability to break down a high-level objective into a sequence of actionable sub-tasks or logical steps. Failure occurs when an agent merely restates the goal without formulating a concrete execution plan.",
+    "confidence": 0.9,
+    "rationale": "The agent's first step is a verbatim restatement of the prompt's objective rather than a breakdown of the logic or implementation strategy required to solve the problem."
+  },
+  "8e73464d54bb7f04d701d60f891f11274ee542dd72573ae6abc34e595c19148d": {
+    "skill_label": "structural requirement alignment",
+    "skill_description": "The ability to map abstract problem descriptions to correct data structures and operations. Failure occurs when the logic assumes a specific data orientation (e.g., column-wise vs. row-wise) that contradicts the problem statement.",
+    "confidence": 0.9,
+    "rationale": "The agent implemented a column-wise average using zip(*nums) instead of calculating the average for each inner tuple as implied by the request to find the average of numbers 'in' the tuples. This represents a failure to correctly align the code's structural logic with the natural language requirement."
+  },
+  "78ed4d4f90022576b71c9e4ccad2ead84c0a1b9bc56603e4eea12eeadd8c9bd5": {
+    "skill_label": "task decomposition",
+    "skill_description": "The ability to break down a high-level objective into a sequence of actionable sub-tasks or logical implementation steps. Failure occurs when an agent attempts to execute a complex goal in a single step without defining the intermediate logic or verification strategy.",
+    "confidence": 0.85,
+    "rationale": "The agent immediately jumps to a high-level implementation goal for a complex algorithmic problem without outlining the necessary logic, constraints, or incremental steps required to reach the solution."
+  },
+  "6005e8e28d3fabbc9f9e7caf94def8cb1c1f4635f7acf1ac70979cf93791e518": {
+    "skill_label": "code completion integrity",
+    "skill_description": "The ability to generate a complete, syntactically valid code block without premature termination or truncation. Failure occurs when the model stops generating before the logic is fully implemented.",
+    "confidence": 0.95,
+    "rationale": "The agent's response cuts off mid-sentence ('while max_idx != -1: r...') without completing the logic or closing the function, indicating a failure to manage output length or complete the generation task."
+  },
+  "e3a680526efe81e8261edb513ecb8c795a3419c9af3c343b67277733ec362ef9": {
+    "skill_label": "task decomposition",
+    "skill_description": "The ability to break down a high-level goal into a sequence of actionable sub-tasks or implementation steps. Failure occurs when an agent attempts to execute a complex objective in a single step without defining the logic or intermediate milestones.",
+    "confidence": 0.85,
+    "rationale": "The agent immediately jumps to the final implementation goal without outlining the logic for string parsing, numeric extraction, or incrementation, indicating a failure to decompose the problem into manageable reasoning steps."
+  },
+  "4f5025f86a013cce801e5ce8d2c87209665d0d73c6f18fccd82c9372383d6890": {
+    "skill_label": "edge case identification",
+    "skill_description": "The ability to identify and handle non-standard input scenarios, such as negative numbers or non-integer numeric representations, within a transformation logic. Failure occurs when the implementation only addresses the most basic interpretation of the prompt's constraints.",
+    "confidence": 0.85,
+    "rationale": "The agent implemented a basic regex for positive integers but failed to consider that 'numeric values' in a string context often include negative signs or decimals, which the provided regex pattern would split or ignore."
+  },
+  "73d976bf9a013a16a8250c76537d714d41f774538366a28947c044c702920cf1": {
+    "skill_label": "iterative algorithm implementation",
+    "skill_description": "The ability to correctly implement the logic of a standard algorithm, such as maintaining state variables across loop iterations. Failure occurs when the logic is incomplete or fails to correctly update tracking variables.",
+    "confidence": 0.9,
+    "rationale": "The agent begins implementing a standard two-pointer merge approach to find the median but fails to complete the logic for updating the tracking variables (m1, m2) and the pointers (i, j), resulting in truncated and incomplete code."
+  },
+  "5a88190a4acd0b313daeecbeb7c294c9f187725deca87d33c447dd48f91d2cb9": {
+    "skill_label": "Task Decomposition",
+    "skill_description": "The ability to break down a high-level objective into a sequence of actionable sub-tasks or logical implementation steps. Failure occurs when an agent attempts to execute a complex goal as a single step without defining the necessary intermediate logic or parameters.",
+    "confidence": 0.85,
+    "rationale": "The agent immediately jumps to 'implementing' and 'testing' without first performing the necessary geometric reasoning or defining the mathematical formula required to solve the problem of an inscribed triangle."
+  },
+  "4d03089df88e31e82b14820b364b4e47cd281396fd2b5475fccfe66cab767a7a": {
+    "skill_label": "geometric constraint reasoning",
+    "skill_description": "The ability to translate spatial or geometric constraints into correct mathematical formulas. Failure occurs when the agent incorrectly identifies or simplifies the relationship between geometric properties and the target objective.",
+    "confidence": 0.9,
+    "rationale": "The agent correctly identifies the geometric configuration for the maximum area (base as diameter, height as radius) and derives the correct formula (r^2) based on that logic, demonstrating the specific skill of mapping geometric properties to a functional implementation."
+  },
+  "df8b9a2eb1fad03f7818a24545f867a9092710faed6cd84dc7fa9323590f1a1a": {
+    "skill_label": "semantic naming consistency",
+    "skill_description": "The ability to align function identifiers and variable names with the intended logic or problem requirements. Failure occurs when the code implementation performs the correct logic but uses a misleading or incorrect name that contradicts the operation.",
+    "confidence": 0.9,
+    "rationale": "The agent correctly implemented the XOR sum logic using bit manipulation, but it named the function 'pair_OR_Sum', which incorrectly suggests a bitwise OR operation instead of the requested XOR operation."
+  },
+  "0ffe493dc8033dbdf740934d0342537efeb1988ae0f98b52cea7807f97ea65a4": {
+    "skill_label": "mathematical property derivation",
+    "skill_description": "The ability to translate a conceptual mathematical relationship into its simplest algebraic constraint. Failure occurs when the agent fails to derive the necessary and sufficient conditions required for a property to hold.",
+    "confidence": 0.9,
+    "rationale": "The agent correctly identified that for roots to be reciprocals, their product must be 1 (c/a = 1), but it failed to account for the discriminant constraint which ensures that real or complex roots actually exist for the given coefficients."
+  },
+  "685d721124780b90ef351b7daea8195a45ccf1f1cd7d0930a0274688e006e6cd": {
+    "skill_label": "regex pattern completeness",
+    "skill_description": "The ability to construct regular expressions that account for recursive or nested structures. A common failure is using a non-recursive pattern for data that may contain nested delimiters.",
+    "confidence": 0.9,
+    "rationale": "The agent provided a regex `\\([^)]*\\)` which only handles a single level of parentheses and fails on nested structures (e.g., '(a(b)c)'), indicating a failure to account for structural complexity in string manipulation."
+  },
+  "5180ac6183fe1cab642636e3ae145d3a68adca640e6b86a48b64d1831381f68e": {
+    "skill_label": "Task decomposition",
+    "skill_description": "The ability to break down a high-level objective into the correct sequence of logical sub-tasks. Failure occurs when the agent identifies an incorrect or irrelevant sub-goal that does not align with the primary requirement.",
+    "confidence": 0.9,
+    "rationale": "The agent incorrectly identifies the goal as implementing a membership test ('is_nonagonal') instead of the requested generator function ('find the nth nonagonal number'), representing a failure to correctly translate the prompt into a functional plan."
+  },
+  "603a9b82c650f13e7bc9157c5f8ef6869d32e1d0fd5ba52f2997d49b1d1b6e0d": {
+    "skill_label": "Instruction Following and Goal Alignment",
+    "skill_description": "The ability to align the generated output with the specific objective defined in the prompt. Failure occurs when the agent solves a related but different problem, such as verifying a property instead of generating a value.",
+    "confidence": 1.0,
+    "rationale": "The problem statement explicitly asks for a function to 'find the nth nonagonal number', but the agent implemented a function to 'check if a number is nonagonal'. This represents a failure to correctly translate the goal into the appropriate algorithmic logic."
+  },
+  "1ae015005b7ab279ef0f275b7accedf442b695e47123e3d634f0b6c42811cef3": {
+    "skill_label": "code logic synthesis",
+    "skill_description": "The ability to translate natural language requirements into correct algorithmic implementations. Failure occurs when the generated code does not accurately reflect the logic required by the prompt.",
+    "confidence": 0.9,
+    "rationale": "The agent generated a Python function using reduce and operator.mul to calculate a product based on the prompt's requirements, demonstrating the core skill of synthesizing code from a description."
+  },
+  "3440be08af795b2040900202518052350069601ddc04d41d47d413a141c68d48": {
+    "skill_label": "task decomposition",
+    "skill_description": "The ability to break down a high-level objective into a sequence of actionable sub-tasks or executable steps. Failure occurs when the agent merely restates the goal without defining the specific logic or implementation strategy required.",
+    "confidence": 0.85,
+    "rationale": "The agent's first step is a circular restatement of the prompt rather than a plan for implementation or a definition of the logic needed to compare the arrays."
+  },
+  "d77e0e9ef95220b2f1e52c01387b638d4a40df2126318b955077be6234d9e03b": {
+    "skill_label": "algorithmic constraint alignment",
+    "skill_description": "The ability to map natural language requirements to the correct computational logic. Failure occurs when the implementation satisfies one interpretation of a term (e.g., 'equal' as multiset equality) while ignoring others (e.g., 'equal' as sequence identity).",
+    "confidence": 0.85,
+    "rationale": "The agent implemented a frequency-based check (multiset equality) using Counter, which assumes order does not matter. Without clarifying if 'equal' refers to identical sequences or identical sets, the agent made an assumption that may not align with the strict definition of array equality."
+  }
+}
