@@ -61,8 +61,8 @@ def _extract_steps_from_run(run: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], 
         causal_steps = analysis.get("causal_attribution", {}).get("causal_steps", [])
         causal_step_ids = {step_id for step_id in (_coerce_int(s) for s in causal_steps) if step_id is not None}
 
-        #repaired = analysis.get("counterfactual_repair", {}).get("successful_repairs", {})
-        repaired = analysis.get("final_repairs", {})
+        repaired = analysis.get("counterfactual_repair", {}).get("successful_repairs", {})
+        #repaired = analysis.get("final_repairs", {})
         repaired_step_ids = {step_id for step_id in (_coerce_int(s) for s in repaired.keys()) if step_id is not None}
 
         for step in trace.get("steps", []):
@@ -594,8 +594,8 @@ def run_skill_decomposition(
 
 if __name__ == "__main__":
     run_skill_decomposition(
-        experiment_name="MBPP",
-        run_id="run_MBPP_2025-12-11T00:49:23.675982",
+        experiment_name="GSM8K",
+        run_id="run_GSM8K_2025-12-20T07:38:08.801930",
         llm_model="google/gemini-3-flash-preview",
         llm_cache_file=".cache/skill_decomposition/skill_label_cache.json",
         grouping_model="google/gemini-3-flash-preview",
