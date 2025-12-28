@@ -1,0 +1,287 @@
+# Causal Skill Decomposition Report
+
+- Experiment: MBPP
+- Run ID: run_MBPP_2025-12-11T00:49:23.675982
+- Total traces: 971
+- Passing traces: 523
+- Failing traces: 448
+- Total steps analyzed: 5826
+- Causal steps labeled: 452
+- Skill groups: 12
+- Skill labeling model: google/gemini-3-flash-preview
+- Skill grouping model: google/gemini-3-flash-preview
+
+## Task Decomposition and Planning
+- Description: The ability to break down high-level objectives into actionable sub-tasks and logical milestones.
+- Size: 141
+- Repair success rate: 0.461
+- Dominant step types: [('reasoning', 141)]
+- Dominant tools: []
+- Member skill labels:
+  - task decomposition (count=130): The ability to break down a high-level objective into a sequence of actionable sub-tasks or implementation steps. Failure occurs when an agent attempts to execute a complex goal in a single jump without defining the intermediate logic or constraints.
+  - Task decomposition and planning (count=4): The ability to break down a high-level objective into a sequence of actionable sub-tasks or implementation steps. Failure occurs when an agent attempts to execute a complex goal in a single step without defining the logic or intermediate milestones.
+  - procedural decomposition (count=3): The ability to break down a high-level objective into a sequence of actionable sub-tasks or logical implementation steps. Failure occurs when the agent merely restates the goal without defining the necessary logic or intermediate operations.
+  - problem decomposition (count=2): The ability to break down a high-level task into actionable sub-steps or logical components. Failure occurs when an agent attempts to execute a complex goal in a single step without defining the necessary intermediate logic or constraints.
+  - plan decomposition (count=1): The ability to break down a high-level objective into a sequence of actionable sub-tasks. Failure occurs when the agent merely restates the goal without identifying the specific logical steps or constraints required for implementation.
+  - logical decomposition (count=1): The ability to break down a high-level goal into the necessary sub-tasks or mathematical primitives required for a complete solution. Failure occurs when the agent identifies only a partial component of the logic needed to satisfy the prompt.
+- Examples:
+  - [mbpp-607] step 0 reasoning  [task decomposition]: Implement find_literals for task mbpp-607. Run official tests to verify.
+  - [mbpp-615] step 0 reasoning  [task decomposition]: Implement average_tuple for task mbpp-615. Run official tests to verify.
+  - [mbpp-620] step 0 reasoning  [task decomposition]: Implement largest_subset for task mbpp-620. Run official tests to verify.
+
+## Algorithmic Logic and Implementation
+- Description: The ability to translate conceptual algorithms and mathematical procedures into functional, executable code.
+- Size: 79
+- Repair success rate: 0.7975
+- Dominant step types: [('llm_response', 78), ('reasoning', 1)]
+- Dominant tools: []
+- Member skill labels:
+  - algorithmic logic implementation (count=44): The ability to translate a conceptual algorithm into correct, executable code that handles all logical conditions of the problem statement. Failure occurs when the implementation logic is incomplete or fails to meet the specific constraints of the prompt.
+  - algorithmic implementation (count=7): The ability to translate a high-level mathematical requirement into a functional code implementation using appropriate libraries or logic. Failure occurs when the generated code does not correctly handle the input structure or edge cases defined by the problem.
+  - algorithmic logic verification (count=3): The ability to ensure a generated algorithm correctly handles all edge cases and core logic requirements. Failure occurs when the logic is incomplete or fails to account for specific input patterns required by the task.
+  - algorithmic logic formulation (count=3): The ability to design a computational approach that correctly maps to the mathematical definition of the objective. Failure occurs when the chosen algorithm (e.g., dynamic programming) optimizes for a sub-component like sum rather than the global objective like average.
+  - algorithmic logic derivation (count=3): The ability to translate a natural language problem description into a correct mathematical or logical procedure. Failure occurs when the agent identifies a heuristic or simplified logic that does not fully capture the problem's constraints.
+  - dynamic programming formulation (count=2): The ability to correctly define state transitions and recurrence relations for optimization problems. Failure occurs when the logic for excluding specific patterns (like consecutive elements) is incorrectly mapped to the state update.
+  - algorithmic logic design (count=2): The ability to design a correct algorithm that accounts for all edge cases and logical constraints. Failure occurs when the logic incorrectly handles set membership or state updates, leading to incorrect counts or missing valid pairs.
+  - algorithmic implementation accuracy (count=2): The ability to correctly translate a conceptual algorithm into functional code while adhering to specific constraints. Failure occurs when the logic is sound but the agent fails to verify if the implementation meets the exact requirements of the prompt.
+  - dynamic programming logic (count=2): The ability to correctly implement recursive relations and boundary conditions in a state-based algorithm. Failure occurs when the transition logic or index handling incorrectly maps the mathematical recurrence to the code implementation.
+  - algorithmic logic synthesis (count=2): The ability to translate a natural language problem description into a correct logical or mathematical algorithm. Failure occurs when the agent fails to recognize that all positive integers can be represented as a sum of powers of two (binary representation).
+  - algorithmic constraint mapping (count=1): The ability to accurately translate problem-specific constraints into the correct algorithmic paradigm. Failure occurs when a greedy approach is applied to a problem requiring dynamic programming or different sorting criteria.
+  - functional logic implementation (count=1): The ability to correctly translate a multi-step mathematical or logical requirement into a concise functional expression. Failure occurs when the logic for processing nested data structures is syntactically correct but fails to handle specific edge cases or complex transformations accurately.
+  - algorithmic implementation verification (count=1): The ability to translate a conceptual algorithm into code while ensuring all edge cases and logic constraints are met. Failure occurs when the generated code is provided without immediate validation or execution against test cases.
+  - algorithmic constraint validation (count=1): The ability to verify if a chosen algorithm's prerequisites (such as input sorting) match the problem constraints. Failure occurs when an optimized approach is implemented without ensuring the input data properties support it.
+  - arithmetic logic formulation (count=1): The ability to translate a mathematical requirement into a correct algorithmic expression. Failure occurs when the logic for calculating a series sum (like an arithmetic progression) is incorrectly derived or implemented.
+  - algorithmic implementation completeness (count=1): The ability to fully translate a conceptual algorithm into a complete, executable code block without omitting critical logic or terminating prematurely.
+  - algorithmic constraint adherence (count=1): The ability to implement a solution that strictly follows the logical requirements of a specific algorithm or data structure. Failure occurs when the implementation produces a correct result (e.g., a sorted list) but violates the specific operational constraints or efficiency properties of the requested method.
+  - algorithmic logic application (count=1): The ability to correctly map a specific problem requirement to a known algorithmic pattern. The failure occurs when a template solution for a different problem is applied without adapting it to the current constraints.
+  - algorithmic implementation logic (count=1): The ability to correctly translate a specific algorithmic requirement into functional code. The failure involves implementing redundant or contradictory logic that deviates from the standard algorithm's purpose.
+- Examples:
+  - [mbpp-601] step 2 llm_response  [algorithmic constraint mapping]: ```python def max_chain_length(pairs):     """     Find the length of the longest chain that can be formed from the given set of pairs.     A pair (a, b) can follow another pair (c, d) if c < a and d < b.     """     if not pairs:         return 0     pairs.sort(key=lambda x: x[1])     last_end = float('-inf')     count = 0     for a, b in pairs:         if a > last_end:             count += 1             last_end = b     return count ```
+  - [mbpp-602] step 2 llm_response  [algorithmic logic implementation]: ```python def first_repeated_char(s: str) -> str:     seen = set()     for ch in s:         if ch in seen:             return ch         seen.add(ch)     return None ```
+  - [mbpp-614] step 2 llm_response  [algorithmic logic implementation]: ```python def cummulative_sum(tup_list):     total = 0     result = []     for t in tup_list:         total += sum(t)         result.append(total)     return result ```
+
+## Unassigned
+- Description: Labels not mapped by the grouping model.
+- Size: 62
+- Repair success rate: 0.5
+- Dominant step types: [('reasoning', 49), ('llm_response', 13)]
+- Dominant tools: []
+- Member skill labels:
+  - Task Decomposition (count=41): No description.
+  - Task decomposition (count=8): No description.
+  - Requirement Interpretation (count=6): No description.
+  - requirement constraint adherence (count=3): No description.
+  - requirement interpretation (count=2): No description.
+  - logical constraint satisfaction (count=1): The ability to correctly translate natural language constraints into mathematical or logical operations. Failure occurs when the agent confuses relative magnitude with absolute value or fails to account for the mathematical definition of 'largest' in the context of negative integers.
+  - instruction adherence (count=1): No description.
+- Examples:
+  - [mbpp-612] step 0 reasoning  [Task decomposition]: Implement merge for task mbpp-612. Run official tests to verify.
+  - [mbpp-613] step 0 reasoning  [Task Decomposition]: Implement maximum_value for task mbpp-613. Run official tests to verify.
+  - [mbpp-614] step 0 reasoning  [Task Decomposition]: Implement cummulative_sum for task mbpp-614. Run official tests to verify.
+
+## Tool and API Integration
+- Description: The ability to interface with external tools, libraries, and APIs using correct schemas and parameters.
+- Size: 34
+- Repair success rate: 0.7353
+- Dominant step types: [('tool_call', 28), ('llm_response', 6)]
+- Dominant tools: [('llm_code_generation', 28)]
+- Member skill labels:
+  - tool argument synthesis (count=26): The ability to accurately map task requirements to the specific parameters required by a tool. Failure occurs when the agent provides incomplete or incorrectly formatted arguments that do not satisfy the tool's schema or operational needs.
+  - tool parameter specification (count=2): The ability to provide all required and sufficient arguments to a tool to ensure it has the necessary context for execution. Failure occurs when the agent omits the core logic or constraints needed for the tool to generate a valid output.
+  - standard library awareness (count=1): The ability to leverage built-in language functions or standard library modules designed for specific mathematical operations. Failure occurs when an agent manually implements a formula instead of using a more robust, built-in alternative.
+  - API constraint adherence (count=1): The ability to correctly implement logic that satisfies specific output format requirements or data structure constraints. Failure occurs when the implementation produces a valid result that nonetheless violates the expected schema or structural convention of the target environment.
+  - interface signature alignment (count=1): The ability to define a function signature and return type that matches the logical requirements of the task. Failure occurs when the implementation logic is correct but the function's output format or parameter handling deviates from the expected specification.
+  - library function application (count=1): The ability to identify and correctly apply standard library functions to satisfy specific combinatorial constraints. Failure occurs when the agent correctly identifies the logic but fails to execute the verification or testing phase required to confirm the implementation meets the prompt's requirements.
+  - standard library utilization (count=1): The ability to correctly leverage built-in language functions and formatting tools to achieve a specific data representation. Failure occurs when the implementation relies on string manipulation that may not account for all edge cases or standard formatting conventions.
+  - API behavior comprehension (count=1): The ability to understand the internal state and limitations of specific data structures or classes. The failure occurs when an agent assumes a constructor or method preserves properties, such as order, that are not guaranteed by the underlying implementation.
+- Examples:
+  - [mbpp-614] step 1 tool_call llm_code_generation [tool argument synthesis]: 
+  - [mbpp-637] step 1 tool_call llm_code_generation [tool argument synthesis]: 
+  - [mbpp-688] step 2 llm_response  [standard library awareness]: ```python import math  def len_complex(x: complex) -> float:     return math.sqrt(x.real ** 2 + x.imag ** 2) ```
+
+## Code Generation and Syntactic Integrity
+- Description: The ability to produce complete, syntactically correct, and well-formatted code blocks without truncation.
+- Size: 24
+- Repair success rate: 0.7917
+- Dominant step types: [('llm_response', 24)]
+- Dominant tools: []
+- Member skill labels:
+  - code implementation accuracy (count=5): The ability to translate a natural language requirement into a functionally correct code snippet that handles all implicit constraints. Failure occurs when the generated logic is syntactically correct but fails to meet the specific algorithmic requirements of the prompt.
+  - code generation (count=3): The ability to translate a natural language requirement into a functional programming implementation. Failure occurs when the agent provides code that may be syntactically correct but lacks the necessary execution or verification steps requested in the prompt.
+  - code generation accuracy (count=3): The ability to translate natural language requirements into functional code that adheres to the specified logic. Failure occurs when the generated code logic is incomplete or incorrect relative to the prompt.
+  - code completion integrity (count=2): The ability to generate syntactically complete and executable code blocks without leaving placeholders or truncated logic. Failure occurs when the model provides an ellipsis or incomplete statement in place of functional code.
+  - syntactic completion integrity (count=2): The ability to generate syntactically complete and valid code blocks without premature truncation or ellipsis. Failure occurs when the model produces incomplete logic or placeholders instead of functional code.
+  - code generation precision (count=2): The ability to translate a natural language requirement into a syntactically and logically correct code snippet. Failure occurs when the generated logic does not fully satisfy the constraints or edge cases of the prompt.
+  - code generation synthesis (count=2): The ability to generate functional code that adheres to specific syntactic constraints or paradigms requested in the prompt. Failure occurs when the model provides a correct implementation but fails to encapsulate it in the expected format or environment-specific wrapper.
+  - naming convention adherence (count=1): The ability to align function or variable identifiers with specific instructions or provided signatures. Failure occurs when the agent generates a correct logical implementation but uses an identifier that contradicts the prompt or context.
+  - Namespace Conflict Resolution (count=1): The ability to distinguish between user-defined function names and built-in language keywords or functions to avoid recursive errors or shadowing.
+  - syntactic code completion (count=1): The ability to generate complete, syntactically valid source code without premature truncation or structural omissions. Failure occurs when the model stops generating mid-expression or leaves blocks unfinished.
+  - Syntactic Logic Application (count=1): The ability to correctly apply language-specific operators or built-in functions to achieve a desired data transformation. Failure occurs when the agent assumes a specific operator behavior without verifying its compatibility with the input types or expected output structure.
+  - syntactic constraint adherence (count=1): The ability to map natural language requirements to precise programming constructs. Failure occurs when the generated code implements a logic that deviates from the specific structural or indexing constraints defined in the prompt.
+- Examples:
+  - [mbpp-620] step 2 llm_response  [code completion integrity]: ```python def largest_subset(nums):     """     Find the largest subset where for every pair (Si, Sj), either Si % Sj == 0 or Sj % Si == 0.     """     if not nums:         return []     nums.sort()     n = len(nums)     dp = [1] * n     prev = [-1] * n     max_idx = 0     for i in range(n):         for j in range(i):             if nums[i] % nums[j] == 0 and dp[j] + 1 > dp[i]:                 dp[i] = dp[j] + 1                 prev[i] = j         if dp[i] > dp[max_idx]:             max_idx = i     res = []     while max_idx != -1:         res.append(nums[max_idx])         max_idx = prev[max_idx]     return res[::-1] ```
+  - [mbpp-841] step 2 llm_response  [syntactic completion integrity]: ```python def get_inv_count(arr):     def merge_sort(arr):         if len(arr) <= 1:             return arr, 0         mid = len(arr) // 2         left, inv_left = merge_sort(arr[:mid])         right, inv_right = merge_sort(arr[mid:])         merged, inv_split = merge(left, right)         return merged, inv_left + inv_right + inv_split      def merge(left, right):         merged = []         i = j = inv_count = 0         while i < len(left) and j < len(right):             if left[i] <= right[j]:                 merged.append(left[i])                 i += 1             else:                 merged.append(right[j])                 inv_count += len(left) - i                 j += 1         merged.extend(left[i:])         merged.extend(right[j:])         return merged, inv_count      _, inv_count = merge_sort(arr)     return inv_count ```
+  - [mbpp-18] step 2 llm_response  [naming convention adherence]: ```python def str_to_list(str1: str, str2: str) -> str:     return ''.join([ch for ch in str1 if ch not in str2]) ```
+
+## Requirement Interpretation and Mapping
+- Description: The ability to accurately translate natural language specifications and constraints into precise logical requirements.
+- Size: 23
+- Repair success rate: 0.8261
+- Dominant step types: [('llm_response', 21), ('reasoning', 2)]
+- Dominant tools: []
+- Member skill labels:
+  - Requirement constraint adherence (count=3): The ability to strictly follow the functional scope defined in a prompt without introducing extraneous logic or unrequested features. Failure occurs when the agent over-complicates a simple boolean or specific condition by adding unnecessary branches.
+  - logical requirement mapping (count=2): The ability to translate specific problem constraints and operations into the correct algorithmic implementation. Failure occurs when the agent implements a logic that solves a different problem than the one requested.
+  - logical constraint mapping (count=2): The ability to accurately translate natural language requirements into formal logical or mathematical expressions. Failure occurs when the agent misinterprets the direction of a relationship or the order of operations described in the prompt.
+  - Instruction adherence (count=2): The ability to align the generated output with the specific objective defined in the prompt. This failure occurs when the agent solves a related but different problem than the one requested.
+  - semantic requirement mapping (count=2): The ability to correctly map natural language predicates to logical operations. A failure occurs when the agent confuses the parity of indices with the parity of the characters themselves or their positions.
+  - structural requirement alignment (count=1): The ability to map high-level task requirements to the correct data structures and operations. Failure occurs when the agent produces a solution that performs a different operation than requested, such as calculating column-wise averages instead of a single global average.
+  - constraint interpretation (count=1): The ability to accurately map natural language requirements or range constraints into logical conditions. Failure occurs when the agent implements specific values or boundaries not specified in the prompt.
+  - Requirement interpretation (count=1): The ability to accurately translate ambiguous or high-level natural language specifications into precise logical constraints. Failure occurs when the agent makes arbitrary assumptions about definitions (e.g., 'validity') not explicitly defined in the prompt.
+  - constraint satisfaction check (count=1): The ability to ensure that generated code or logic strictly adheres to all implicit and explicit requirements of the prompt. Failure occurs when the agent provides a solution that is syntactically correct but logically incomplete or fails to handle specific edge cases defined in the task.
+  - constraint-based logic implementation (count=1): The ability to translate specific logical constraints from a natural language prompt into functional code. Failure occurs when the generated logic is overly simplistic or fails to account for the specific data structures or conditions defined in the requirements.
+  - functional requirement mapping (count=1): The ability to map specific natural language constraints to correct function signatures and internal logic. Failure occurs when the generated code structure deviates from the naming or logic requirements specified in the prompt.
+  - Instruction interpretation (count=1): The ability to accurately map a natural language request to the correct computational task or function signature. Failure occurs when the agent misidentifies the core objective or required operation.
+  - semantic requirement interpretation (count=1): The ability to accurately map natural language descriptions of data structures and operations to their corresponding programmatic implementations. Failure occurs when the agent misinterprets which element or property of an object constitutes the target criteria.
+  - requirement interpretation accuracy (count=1): The ability to accurately translate natural language requirements into functional logic. Failure occurs when the implementation addresses a common pattern (e.g., finding an index) rather than the specific constraint requested (e.g., handling missing elements or specific count logic).
+  - Constraint adherence (count=1): The ability to strictly follow the functional requirements and return types specified in a prompt. Failure occurs when the agent returns a complex object (like a tuple) instead of a derived scalar value (like a product) as requested.
+  - Requirement Completeness Analysis (count=1): The ability to map a high-level task description to a complete functional implementation. Failure occurs when an agent implements only a sub-component or helper function instead of the full logic required by the prompt.
+  - semantic requirement alignment (count=1): The ability to map natural language requirements to appropriate algorithmic logic. Failure occurs when the generated solution addresses a different problem than the one specified, despite being syntactically correct.
+- Examples:
+  - [mbpp-615] step 2 llm_response  [structural requirement alignment]: ```python def average_tuple(tuples):     return tuple(sum(x)/len(x) for x in zip(*tuples)) ```
+  - [mbpp-633] step 2 llm_response  [logical requirement mapping]: ```python def pair_OR_Sum(arr):     n = len(arr)     ans = 0     for i in range(32):         cnt1 = sum((num >> i) & 1 for num in arr)         cnt0 = n - cnt1         ans += cnt1 * cnt0 * (1 << i)     return ans ```
+  - [mbpp-637] step 2 llm_response  [Requirement constraint adherence]: ```python def noprofit_noloss(cost_price: int, selling_price: int) -> str:     """     Check whether the transaction results in no profit and no loss.     Returns "No Profit No Loss" if cost_price == selling_price,     "Profit" if selling_price > cost_price,     "Loss" otherwise.     """     if selling_price == cost_price:         return "No Profit No Loss"     elif selling_price > cost_price:         return "Profit"     else:         return "Loss" ```
+
+## Data Structure and Type Management
+- Description: The ability to navigate, transform, and preserve the properties of complex or nested data structures.
+- Size: 17
+- Repair success rate: 0.8824
+- Dominant step types: [('llm_response', 17)]
+- Dominant tools: []
+- Member skill labels:
+  - data structure transformation (count=4): The ability to convert mutable or unhashable data types into hashable equivalents to facilitate set-based operations. Failure occurs when the agent fails to account for nested structures or specific type constraints required by the target operation.
+  - nested structure navigation (count=1): The ability to correctly identify and access specific elements within nested data structures. Failure occurs when the agent incorrectly maps the indexing or iteration logic to the schema of the input data.
+  - data structure preservation (count=1): The ability to perform operations while maintaining the specific properties of the input types, such as handling duplicate elements in collections. A failure occurs when a transformation (like casting to a set) loses essential data characteristics (like frequency) required for the logic.
+  - input type assumption (count=1): The ability to correctly infer or validate the data types of nested structures before applying operations. Failure occurs when an agent assumes a specific iterable type (like a list) for dictionary values without handling potential non-iterable or scalar types.
+  - tuple-aware sorting logic (count=1): The ability to correctly handle complex data structures like tuples when applying sorting algorithms. Failure occurs when the agent provides a generic sorting implementation that may not account for specific element-wise comparison requirements inherent in tuple lists.
+  - type conversion logic (count=1): The ability to correctly map data types and structures between input and output formats. Failure occurs when the agent uses a superficial transformation (like string splitting) instead of preserving the semantic value of the data type.
+  - nested structure implementation (count=1): The ability to correctly map multi-dimensional requirements into nested data structures. Failure occurs when the agent produces a syntactically correct but logically inverted or incorrectly ordered hierarchy of dimensions.
+  - canonical representation mapping (count=1): The ability to transform input data into a standardized or sorted format to ensure that equivalent but differently ordered elements are treated as identical during aggregation.
+  - set-based membership logic (count=1): The ability to correctly implement conditional logic for set operations and collection filtering. Failure occurs when the logic for identifying and excluding duplicates or symmetric counterparts is redundant or incorrectly structured.
+  - type-specific syntax implementation (count=1): The ability to correctly apply language-specific operations to a specific data structure. Failure occurs when the agent assumes a data type supports operations (like string joining) that require explicit conversion or specific handling.
+  - recursive data transformation (count=1): The ability to correctly traverse and flatten nested data structures of varying types. Failure occurs when the implementation does not account for all specified container types or depth levels required by the problem.
+  - type-based filtering logic (count=1): The ability to correctly implement conditional logic for filtering collection elements based on their runtime data type. Failure occurs when the implementation does not account for the specific constraints or edge cases of type comparison.
+  - set operation logic (count=1): The ability to correctly apply set-theoretic operations to identify differences or similarities between collections. Failure occurs when the chosen operation or its implementation (e.g., sorting or type conversion) does not align with the specific requirements of the comparison task.
+  - recursive structure mapping (count=1): The ability to correctly traverse and transform nested data structures while maintaining the original hierarchy. Failure occurs when the transformation flattens or alters the structural depth of the input instead of preserving it.
+- Examples:
+  - [mbpp-613] step 2 llm_response  [nested structure navigation]: ```python def maximum_value(test_list):     """     Function to find the maximum value in record list as tuple attribute in the given tuple list.     """     return max(max(sub[1]) for sub in test_list) ```
+  - [mbpp-651] step 2 llm_response  [data structure preservation]: ```python def check_subset(tup1, tup2):     """     Check if tup1 is a subset of tup2     """     return set(tup1).issubset(set(tup2)) ```
+  - [mbpp-694] step 2 llm_response  [input type assumption]: ```python def extract_unique(d):     unique_vals = set()     for vals in d.values():         unique_vals.update(vals)     return list(unique_vals) ```
+
+## Edge Case and Boundary Handling
+- Description: The ability to account for boundary conditions, empty inputs, and specific data properties that deviate from the happy path.
+- Size: 17
+- Repair success rate: 0.7059
+- Dominant step types: [('llm_response', 17)]
+- Dominant tools: []
+- Member skill labels:
+  - algorithmic edge-case handling (count=8): The ability to account for data structure properties such as element frequency or ordering when selecting a computational approach. A failure occurs when a simplified representation (like a set) is used that loses critical information (like duplicates) required for a correct solution.
+  - edge case handling (count=3): The ability to account for boundary conditions or empty inputs in logic. A failure occurs when the implementation returns a result that may be technically correct for non-empty sets but fails to address the semantic requirements of empty or null inputs.
+  - logical condition implementation (count=2): The ability to translate natural language constraints into precise boolean logic within code. Failure occurs when the implementation logic does not correctly handle the edge cases or specific criteria defined in the problem statement.
+  - exception handling logic (count=1): The ability to correctly implement conditional logic or error handling to distinguish between valid and invalid data transformations. Failure occurs when the logic incorrectly processes or bypasses elements that should remain unchanged or be handled differently.
+  - logical reasoning (count=1): The ability to correctly interpret problem constraints and implement the required logic. A failure occurs when the implementation lacks necessary safety checks or fails to handle edge cases inherent in the data structure.
+  - algorithmic edge-case reasoning (count=1): The ability to correctly handle boundary conditions and value offsets in binary search logic. Failure occurs when the logic assumes a fixed relationship between index and value that may not hold for all valid input ranges.
+  - edge case logic (count=1): The ability to correctly handle boundary conditions and special input values, such as zero or single-bit integers, within an algorithm. Failure occurs when the logic produces an incorrect result for these specific cases despite a correct general approach.
+- Examples:
+  - [mbpp-706] step 2 llm_response  [algorithmic edge-case handling]: ```python def is_subset(arr1, arr2):     """     Return True if arr2 is a subset of arr1, else False.     """     return set(arr2).issubset(set(arr1)) ```
+  - [mbpp-760] step 2 llm_response  [edge case handling]: ```python def unique_Element(arr):     """     Check whether the array contains only one distinct element or not.     """     return len(set(arr)) == 1 ```
+  - [mbpp-874] step 2 llm_response  [algorithmic edge-case handling]: ```python def check_Concat(s):     n = len(s)     for i in range(1, n // 2 + 1):         if n % i == 0:             sub = s[:i]             if sub * (n // i) == s:                 return True     return False ```
+
+## Mathematical and Geometric Reasoning
+- Description: The ability to apply mathematical theorems, properties, and geometric constraints to derive solutions.
+- Size: 17
+- Repair success rate: 0.7059
+- Dominant step types: [('llm_response', 16), ('reasoning', 1)]
+- Dominant tools: []
+- Member skill labels:
+  - mathematical formula implementation (count=3): The ability to accurately translate a mathematical concept or formula into executable code. Failure occurs when the implementation uses an incorrect variant of a formula, such as using population variance instead of sample variance when the context implies the latter.
+  - mathematical property derivation (count=2): The ability to translate a conceptual mathematical relationship into its underlying algebraic constraints. Failure occurs when the agent fails to derive the necessary and sufficient conditions required to satisfy the problem's logic.
+  - mathematical logic derivation (count=2): The ability to translate a complex mathematical property into its simplest logical equivalent. Failure occurs when the agent fails to recognize that a product's parity depends solely on the presence of a single even factor.
+  - geometric reasoning (count=1): The ability to derive mathematical formulas from geometric constraints and spatial relationships. Failure occurs when the agent provides a result without performing the necessary derivation or optimization steps to ensure correctness.
+  - mathematical logic translation (count=1): The ability to accurately translate a formal mathematical definition or sequence into programmatic logic. Failure occurs when the implementation incorrectly maps the sequence terms or boundary conditions to the requested mathematical series.
+  - mathematical identity application (count=1): The ability to correctly map a high-level mathematical concept to its equivalent closed-form expression or algorithmic implementation. Failure occurs when the agent selects or derives an incorrect formula for the requested mathematical property.
+  - mathematical property verification (count=1): The ability to correctly translate a mathematical definition into a logical condition. The failure involves an incomplete or inefficient implementation of a property, such as failing to account for all values that satisfy a modular arithmetic condition.
+  - Mathematical logic implementation (count=1): The ability to translate mathematical theorems into robust code logic. Failure occurs when the implementation assumes specific variable roles (like 'c' being the hypotenuse) without verifying or enforcing those constraints through input validation or documentation.
+  - domain-specific concept retrieval (count=1): The ability to accurately map a specific technical term or named concept to its mathematical definition. Failure occurs when the agent hallucinates or substitutes an incorrect formula for a named property.
+  - combinatorial logic application (count=1): The ability to translate a structural pattern requirement into a mathematical formula. Failure occurs when the agent correctly identifies frequency counts but applies an incomplete or incorrect combinatorial rule to derive the total count.
+  - mathematical property identification (count=1): The ability to recognize underlying mathematical principles or patterns required to solve a problem efficiently. Failure occurs when the agent fails to identify that a specific property (e.g., perfect squares having odd factors) is the key to the solution.
+  - mathematical constraint generalization (count=1): The ability to implement logic that accounts for all valid mathematical cases, including complex numbers or symbolic relationships, rather than restricting logic to a subset of real-valued solutions.
+  - mathematical formula verification (count=1): The ability to correctly implement and verify geometric or mathematical formulas for specific properties. The failure occurs when a simplified or incorrect version of a formula (like the area of a triangle) is used without considering necessary constants or edge cases.
+- Examples:
+  - [mbpp-626] step 2 llm_response  [geometric reasoning]: ```python import math  def triangle_area(r):     """     Find the largest triangle that can be inscribed in a semicircle of radius r.     Returns the maximum possible area.     """     return r * r ```
+  - [mbpp-636] step 2 llm_response  [mathematical property derivation]: ```python def Check_Solution(a, b, c):     if a == 0:         return False     return a == c ```
+  - [mbpp-704] step 2 llm_response  [mathematical logic translation]: ```python def harmonic_sum(n):     if n < 2:         return 1     return 1 / (n - 1) + harmonic_sum(n - 1) ```
+
+## Regex and Pattern Synthesis
+- Description: The ability to construct and apply precise regular expressions and search patterns.
+- Size: 16
+- Repair success rate: 0.6875
+- Dominant step types: [('llm_response', 16)]
+- Dominant tools: []
+- Member skill labels:
+  - regex pattern synthesis (count=4): The ability to correctly translate a natural language requirement into a functional regular expression pattern. Failure occurs when the generated pattern or its implementation logic does not fully satisfy the specific constraints of the search task.
+  - regex pattern precision (count=4): The ability to construct regular expressions that accurately enforce specific constraints without allowing invalid edge cases. Failure occurs when the pattern logic is too permissive, such as allowing empty segments or leading zeros where prohibited.
+  - pattern matching precision (count=1): The ability to define search patterns that accurately capture target substrings while excluding unintended matches or preserving necessary formatting. Failure occurs when the generated pattern is too restrictive or too broad for the intended transformation.
+  - regex pattern construction (count=1): The ability to correctly synthesize regular expression syntax to meet specific logical constraints, such as anchoring or escaping special characters. Failure occurs when the generated pattern does not accurately reflect the intended string matching logic.
+  - regex constraint mapping (count=1): The ability to translate natural language constraints into precise regular expression patterns. Failure occurs when the generated pattern matches a subset of the requirement but fails to enforce exclusivity or global constraints.
+  - regex constraint specification (count=1): The ability to translate natural language requirements into precise regular expression patterns without introducing unintended boundary constraints. Failure occurs when overly restrictive anchors (like start/end of string) are applied to a search task meant to find sequences within a larger text.
+  - requirement-driven regex synthesis (count=1): The ability to translate natural language constraints into precise regular expression patterns. Failure occurs when the generated pattern uses a hardcoded or incomplete set of delimiters instead of a generalized solution that satisfies the prompt's scope.
+  - regex pattern escaping (count=1): The ability to correctly handle literal characters within regular expressions to prevent them from being interpreted as special metacharacters. Failure occurs when the agent fails to account for the distinction between raw string literals and regex syntax.
+  - literal pattern handling (count=1): The ability to distinguish between literal string matching and regular expression syntax. Failure occurs when an agent uses regex-based tools or libraries for a task explicitly requiring literal matching without ensuring proper escaping or using non-regex alternatives.
+  - heuristic-based pattern matching (count=1): The ability to design comprehensive search patterns that capture all valid instances of a category. Failure occurs when the agent relies on an oversimplified heuristic that misses valid cases or includes invalid ones.
+- Examples:
+  - [mbpp-607] step 2 llm_response  [regex pattern synthesis]: ```python import re  def find_literals(s, pattern):     """     Search a literal string in a string and return list of tuples (match, start)     of all occurrences using regex.     """     matches = []     for m in re.finditer(re.escape(pattern), s):         matches.append((m.group(), m.start()))     return matches ```
+  - [mbpp-643] step 2 llm_response  [regex pattern synthesis]: ```python import re  def text_match_wordz_middle(text):     """     Match a word containing 'z' not at the start or end of the word.     """     pattern = r'\b\w+[^z\s]z[^z\s]\w+\b|\b\w*[A-Ya-y]\w*z\w*[A-Ya-y]\w*\b'     return bool(re.search(r'\b\w+[a-yA-Y]z[a-yA-Y]\w+\b', text)) ```
+  - [mbpp-669] step 2 llm_response  [regex pattern precision]: ```python import re  def check_IP(ip):     pattern = re.compile(         r'^((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}'         r'(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$'     )     return bool(pattern.match(ip)) ```
+
+## Input Parsing and Verification
+- Description: The ability to handle raw input formats and verify the final output through testing.
+- Size: 14
+- Repair success rate: 0.5714
+- Dominant step types: [('llm_response', 14)]
+- Dominant tools: []
+- Member skill labels:
+  - structural assumption validation (count=2): The ability to correctly infer and generalize the internal structure of nested data types from a problem description. Failure occurs when the logic assumes a fixed dimensionality or length that is not explicitly guaranteed.
+  - index-based logic implementation (count=1): The ability to correctly translate abstract indexing requirements into precise slice or access operations. Failure occurs when the implementation assumes a specific indexing convention (like 0-based vs 1-based) without clarifying or handling the alternative.
+  - code logic synthesis (count=1): The ability to translate natural language requirements into correct algorithmic implementations. Failure occurs when the generated code lacks necessary edge-case handling or fails to meet the specific functional constraints of the prompt.
+  - input format parsing (count=1): The ability to correctly interpret and handle the structure of input data, such as identifying delimiters or separators. Failure occurs when the agent assumes a default format (like whitespace) without verifying the actual structure of the input string.
+  - input format interpretation (count=1): The ability to correctly parse and handle the specific data structure of an input variable. The failure occurs when the agent treats a structured string as a native collection without performing the necessary deserialization or parsing.
+  - input processing logic (count=1): The ability to correctly handle and tokenize input data based on the problem requirements. Failure occurs when the agent applies an overly restrictive or incorrect transformation (like splitting by whitespace) to the input stream.
+  - code verification planning (count=1): The ability to generate executable test cases or validation logic alongside a solution to ensure correctness. The failure occurs when an agent provides a solution without the requested verification steps.
+  - index parity logic (count=1): The ability to correctly map natural language requirements (e.g., 'even characters') to zero-based or one-based indexing logic. Failure occurs when the agent confuses the parity of the index with the ordinal position of the character.
+  - structural pattern inference (count=1): The ability to correctly interpret the implicit data structure of an input format (e.g., whether pairs are [value, count] or [count, value]). Failure occurs when the agent assumes a specific ordering or mapping without verifying the specification.
+  - verification step omission (count=1): The ability to follow multi-part instructions that require both generation and immediate validation. The failure occurs when the agent provides a solution but neglects to execute the required verification or testing phase.
+  - string normalization logic (count=1): The ability to preprocess raw string data into a standardized format before analysis. Failure occurs when the agent neglects to handle edge cases like punctuation or case sensitivity that affect equality comparisons.
+  - code verification synthesis (count=1): The ability to generate functional code that adheres to specific requirements and verify its correctness through execution. The failure occurs when the agent provides a solution without initiating the required validation steps or test cases.
+  - test case generation (count=1): The ability to proactively generate and execute validation scripts or test cases to verify the correctness of an implementation. The failure occurs when an agent provides a solution without performing the verification steps it previously identified as necessary.
+- Examples:
+  - [mbpp-610] step 2 llm_response  [index-based logic implementation]: ```python def remove_kth_element(lst, k):     if 0 <= k < len(lst):         return lst[:k] + lst[k+1:]     return lst ```
+  - [mbpp-645] step 2 llm_response  [code logic synthesis]: ```python def get_product(test_list, K):     res = 1     for t in test_list:         res *= t[K]     return res ```
+  - [mbpp-715] step 2 llm_response  [input format parsing]: ```python def str_to_tuple(s: str) -> tuple:     return tuple(map(int, s.split())) ```
+
+## Computational Efficiency and Optimization
+- Description: The ability to select and implement the most efficient approach to minimize time or space complexity.
+- Size: 8
+- Repair success rate: 0.625
+- Dominant step types: [('llm_response', 7), ('reasoning', 1)]
+- Dominant tools: []
+- Member skill labels:
+  - algorithmic efficiency optimization (count=3): The ability to implement a solution using the most direct mathematical property rather than a computational simulation. The failure involves performing an O(sqrt(n)) iteration when a constant-time check for perfect squares would suffice.
+  - algorithmic complexity optimization (count=2): The ability to select or design an algorithm that meets efficiency requirements. Failure occurs when a naive or brute-force approach is implemented instead of a more optimal mathematical or linear-time solution.
+  - bitmask logic synthesis (count=1): The ability to construct precise bitwise masks based on dynamic input properties. Failure occurs when the logical operations or shift offsets do not correctly isolate the intended bit range.
+  - redundant logic implementation (count=1): The ability to recognize inherent properties of built-in function outputs to avoid unnecessary validation logic. The failure occurs when an agent implements manual checks for conditions that are already guaranteed by the language's standard library.
+  - algorithmic complexity analysis (count=1): The ability to select an efficient computational approach for a mathematical problem to avoid performance bottlenecks. Failure occurs when the agent defaults to a naive nested-loop implementation for a problem that requires a linear-time optimization.
+- Examples:
+  - [mbpp-735] step 2 llm_response  [bitmask logic synthesis]: ```python def set_middle_bits(n: int) -> int:     bits = n.bit_length()     if bits <= 2:         return n     mask = ((1 << (bits - 1)) - 1) ^ 1     return n ^ mask ```
+  - [mbpp-781] step 2 llm_response  [algorithmic efficiency optimization]: ```python import math  def count_Divisors(n: int) -> str:     cnt = 0     for i in range(1, int(math.isqrt(n)) + 1):         if n % i == 0:             cnt += 2 if i != n // i else 1     return "even" if cnt % 2 == 0 else "odd" ```
+  - [mbpp-844] step 2 llm_response  [algorithmic efficiency optimization]: ```python def get_Number(arr, k):     odds = [x for x in arr if x % 2 != 0]     evens = [x for x in arr if x % 2 == 0]     combined = odds + evens     if 1 <= k <= len(combined):         return combined[k - 1]     return None ```
