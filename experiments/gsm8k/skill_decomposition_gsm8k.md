@@ -1,0 +1,464 @@
+# Causal Skill Decomposition Report
+
+- Experiment: GSM8K
+- Run ID: run_GSM8K_2025-12-20T07:38:08.801930
+- Total traces: 1219
+- Passing traces: 989
+- Failing traces: 230
+- Total steps analyzed: 18187
+- Causal steps labeled: 1305
+- Skill groups: 16
+- Skill labeling model: google/gemini-3-flash-preview
+- Skill grouping model: google/gemini-3-flash-preview
+
+## Mathematical Expression Synthesis
+- Description: The ability to translate natural language relationships and planned steps into formal mathematical expressions or tool-ready syntax.
+- Size: 358
+- Repair success rate: 0.6564
+- Dominant step types: [('reasoning', 243), ('tool_call', 88), ('tool_response', 14), ('llm_response', 13)]
+- Dominant tools: [('calculator', 102)]
+- Member skill labels:
+  - mathematical expression formulation (count=274): The ability to translate natural language quantitative relationships into correct arithmetic operations. Failure occurs when the agent correctly identifies the required operation but fails to execute the calculation or move to the next logical step in the sequence.
+  - mathematical logic formulation (count=32): The ability to translate word problems into correct mathematical expressions. The failure occurs when the agent correctly identifies components but applies an incorrect operator or logic, such as adding a percentage to a base value instead of calculating a fraction of it.
+  - mathematical operation formulation (count=9): The ability to translate a multi-step word problem into the correct sequence of arithmetic operations. Failure occurs when the agent selects the correct operands but applies an incorrect operation or logic to derive the intermediate value.
+  - multi-step expression synthesis (count=8): The ability to integrate multiple intermediate values and operations into a single coherent mathematical expression for tool execution. Failure occurs when the agent attempts to solve the final objective without decomposing the remaining logic into its constituent parts.
+  - Mathematical expression synthesis (count=6): The ability to translate a multi-step word problem into the correct sequence of operations or a comprehensive mathematical expression. Failure occurs when the agent initiates a partial calculation without accounting for all necessary variables or dimensions.
+  - mathematical model formulation (count=6): The ability to translate natural language constraints into a complete and correct mathematical expression. Failure occurs when the agent omits necessary variables or operations required by the problem logic.
+  - mathematical expression construction (count=5): The ability to correctly translate a multi-step logical plan into a single, accurate mathematical expression. Failure occurs when the agent incorrectly nests operations or fails to use previously computed intermediate results.
+  - arithmetic expression synthesis (count=3): The ability to accurately translate multi-step logical operations into a single, valid mathematical expression for tool execution. Failure occurs when the agent fails to correctly aggregate previously calculated values or misinterprets the required sequence of operations.
+  - mathematical logic translation (count=3): The ability to accurately translate a natural language problem into a mathematical expression that reflects the intended state change. Failure occurs when the agent calculates the quantity being removed rather than the quantity remaining.
+  - mathematical model construction (count=2): The ability to translate natural language constraints into correct algebraic expressions. Failure occurs when the agent incorrectly relates variables (e.g., adding savings to a cost instead of subtracting it from a reference point).
+  - mathematical modeling (count=2): The ability to translate a natural language word problem into a correct mathematical sequence or formula. Failure occurs when the agent misinterprets the growth pattern or initial conditions described in the text.
+  - mathematical expression parsing (count=2): The ability to correctly translate a multi-step logical reasoning plan into a precise mathematical expression for a tool to execute. Failure occurs when the agent constructs an expression that does not accurately reflect the intended arithmetic operation.
+  - mathematical logic synthesis (count=1): The ability to construct a comprehensive mathematical expression that accounts for all sequential components of a multi-stage process, including cumulative time and repeated actions.
+  - complex expression synthesis (count=1): The ability to aggregate multiple intermediate computational results into a single, logically sound mathematical expression for tool execution.
+  - state-dependent expression synthesis (count=1): The ability to construct a complex mathematical expression by correctly referencing and integrating intermediate results from previous steps into a final calculation.
+  - nested expression construction (count=1): The ability to synthesize multiple derived values into a single coherent mathematical expression. Failure occurs when the agent correctly identifies the logic but fails to properly structure the arithmetic sequence or use intermediate results correctly.
+  - arithmetic expression formulation (count=1): The ability to translate natural language constraints into correct mathematical operations. Failure occurs when the agent identifies the correct variables but fails to execute the calculation or move to the next logical derivation step.
+  - multi-step expression formulation (count=1): The ability to correctly construct a mathematical expression that accounts for all variables in a multi-stage problem. Failure occurs when the agent conflates intermediate steps or fails to incorporate the final temporal multiplier.
+- Examples:
+  - [gsm8k_7] step 13 tool_call calculator [mathematical logic synthesis]: 
+  - [gsm8k_10] step 3 reasoning  [mathematical expression formulation]: Step 1: Calculate downloads in the second month. Operation: multiplication Expression: 60 * 3
+  - [gsm8k_10] step 6 reasoning  [mathematical expression formulation]: Step 2: Calculate the downloads in the third month after a 30% reduction. Operation: multiplication Expression: (60 * 3) * (1 - 0.30)
+
+## Unassigned
+- Description: Labels not mapped by the skill labeling step. Might be outlier failures
+- Size: 256
+- Repair success rate: 0.7773
+- Dominant step types: [('reasoning', 151), ('tool_call', 76), ('tool_response', 24), ('llm_response', 5)]
+- Dominant tools: [('calculator', 100)]
+- Member skill labels:
+  - mathematical expression synthesis (count=199): No description.
+  - mathematical problem decomposition (count=8): No description.
+  - temporal constraint reasoning (count=7): No description.
+  - mathematical operation selection (count=5): The ability to identify and apply the correct mathematical operation to transform a known quantity into a target unit or count. Failure occurs when the agent selects an operation that does not logically follow from the preceding reasoning steps.
+  - mathematical operation mapping (count=4): The ability to correctly map logical steps to mathematical expressions. Failure occurs when the agent identifies the correct goal but applies an incorrect or redundant operation that does not align with the problem's logic.
+  - nested expression synthesis (count=4): The ability to construct complex mathematical expressions by correctly nesting previous intermediate results into a single formula. Failure occurs when the agent attempts to re-derive the entire chain of logic instead of using simplified outputs from previous steps.
+  - Mathematical decomposition (count=2): No description.
+  - premise consistency verification (count=2): No description.
+  - Mathematical expression formulation (count=2): No description.
+  - relational data extraction (count=1): The ability to accurately map specific numerical values to their corresponding entities or categories within a multi-variable problem. Failure occurs when the agent incorrectly pairs a value from one category with a logic operation intended for another.
+  - operation type classification (count=1): The ability to correctly identify and label the mathematical operation being performed. This failure occurs when the agent correctly constructs a multi-step expression but misidentifies the primary operator (e.g., labeling a subtraction sequence as addition).
+  - logical plan validation (count=1): The ability to design a sequence of operations where each step logically leads to the final goal. Failure occurs when the proposed plan contains a non-sequitur or an invalid relationship between intermediate variables.
+  - logical plan formulation (count=1): The ability to construct a valid sequence of operations to solve a multi-step problem. Failure occurs when the proposed logic contains a non-sequitur or an incorrect relationship between variables.
+  - Mathematical operation formulation (count=1): No description.
+  - Strategic Planning (count=1): No description.
+  - mathematical model translation (count=1): The ability to convert qualitative relationships or ratios into quantitative expressions for computation. Failure occurs when the agent correctly identifies a relationship but generates an overly simplistic or irrelevant arithmetic operation.
+  - computational strategy formulation (count=1): The ability to decompose a multi-step word problem into a logical sequence of operations. Failure occurs when the agent identifies the correct components but fails to sequence them in a way that maintains mathematical integrity.
+  - Mathematical expression construction (count=1): No description.
+  - Mathematical Expression Synthesis (count=1): No description.
+  - Mathematical Logic Formulation (count=1): No description.
+  - Mathematical Expression Formulation (count=1): No description.
+  - Constraint-based Strategy Selection (count=1): No description.
+  - constraint-based strategy selection (count=1): No description.
+  - Variable state tracking (count=1): No description.
+  - conditional logic decomposition (count=1): The ability to translate complex conditional constraints (e.g., 'buy X get Y free') into a sequence of mathematical operations. Failure occurs when the agent fails to distinguish between purchased units and total units received in its initial plan.
+  - Mathematical Problem Decomposition (count=1): No description.
+  - mathematical operation decomposition (count=1): The ability to translate natural language constraints into discrete mathematical expressions. Failure occurs when the agent identifies the correct operation but fails to execute the calculation or transition to the next logical step in the sequence.
+  - mathematical sign consistency (count=1): The ability to maintain consistent directional signs (positive vs. negative) for opposing forces within a cumulative calculation. The failure occurs when the agent fails to invert the sign of a rate when the process switches from cooling to warming.
+  - mathematical variable mapping (count=1): No description.
+  - mathematical decomposition strategy (count=1): The ability to break down a multi-step word problem into a logical sequence of operations. Failure occurs when the agent selects an operation that conflates individual and aggregate metrics, leading to redundant or incorrect calculations.
+  - Mathematical Strategy Formulation (count=1): No description.
+  - multi-step temporal reasoning (count=1): The ability to account for all temporal constraints and multipliers specified in a problem statement. The failure occurs when the agent neglects a final scaling factor (e.g., a multi-week duration) during the final calculation step.
+- Examples:
+  - [gsm8k_17] step 11 tool_response calculator [mathematical expression synthesis]: 
+  - [gsm8k_20] step 13 tool_call calculator [mathematical expression synthesis]: 
+  - [gsm8k_20] step 15 reasoning  [mathematical expression synthesis]: Step 5: Calculate the total amount of water in the mixture. Operation: addition Expression: 6 + 9 * (2/3)
+
+## Problem Decomposition and Planning
+- Description: The ability to break down complex, multi-step word problems into a logical sequence of sub-tasks or intermediate operations.
+- Size: 229
+- Repair success rate: 0.7336
+- Dominant step types: [('reasoning', 190), ('llm_response', 33), ('tool_call', 5), ('tool_response', 1)]
+- Dominant tools: [('calculator', 6)]
+- Member skill labels:
+  - mathematical decomposition (count=47): The ability to break down a multi-step word problem into a sequence of logical operations. Failure occurs when the agent acknowledges the problem but fails to initiate the first computational step or structural plan.
+  - multi-step problem decomposition (count=36): The ability to break down a complex word problem into a sequence of discrete logical or mathematical operations. Failure occurs when the agent identifies the need for a step-by-step approach but fails to immediately formulate the specific sub-tasks required.
+  - problem decomposition (count=30): The ability to break down a complex multi-step word problem into a sequence of logical sub-tasks or operations. Failure occurs when the agent acknowledges the need for steps but fails to immediately identify the specific mathematical operations required.
+  - multi-step plan formulation (count=23): The ability to decompose a complex word problem into a sequential logical structure of operations. Failure occurs when the agent fails to fully map all constraints or variables into a complete execution plan.
+  - multi-step mathematical decomposition (count=22): The ability to break down a complex word problem into a sequence of discrete arithmetic operations and logical dependencies. Failure occurs when the agent fails to translate relational descriptions into a structured plan.
+  - multi-step mathematical reasoning (count=8): The ability to decompose a complex word problem into a sequence of logical arithmetic operations while maintaining state across different sub-problems. Failure occurs when the agent fails to correctly identify or execute the necessary intermediate calculations required for a final sum.
+  - multi-step decomposition (count=8): The ability to break down a complex word problem into a sequence of logical sub-problems or intermediate calculations. Failure occurs when the agent acknowledges the need for a step-by-step approach but fails to initiate the first logical derivation.
+  - strategic decomposition (count=6): The ability to break down a complex multi-step problem into a sequence of manageable sub-tasks or logical phases. Failure occurs when the agent identifies the need for a plan but fails to specify the actual logical operations or intermediate variables required.
+  - mathematical strategy formulation (count=5): The ability to decompose a word problem into a sequence of logical operations and algebraic relationships. Failure occurs when the agent cannot correctly translate constraints into a solvable multi-step plan.
+  - multi-step logical decomposition (count=5): The ability to break down a complex word problem into a sequential series of distinct mathematical operations and intermediate goals. Failure occurs when the agent merely restates the problem without initiating a structured plan.
+  - problem decomposition strategy (count=5): The ability to break down a complex multi-step problem into a logical sequence of sub-tasks or operations. Failure occurs when the agent acknowledges the need for a step-by-step approach but fails to immediately initiate the first logical calculation or sub-goal.
+  - multi-step plan decomposition (count=4): The ability to break down a complex word problem into a sequence of logical operations. Failure occurs when the agent fails to fully articulate or complete the necessary sub-steps required to reach the final solution.
+  - Decomposition and Planning (count=4): The ability to break down a complex multi-step problem into a logical sequence of sub-tasks. Failure occurs when the agent fails to identify all necessary intermediate variables or the correct order of operations.
+  - logical decomposition (count=3): The ability to break down a multi-step problem into a sequence of intermediate quantitative objectives. Failure occurs when the agent identifies the correct next logical sub-goal but has not yet executed the calculation to resolve it.
+  - multi-step strategy formulation (count=3): The ability to decompose a complex word problem into a logical sequence of operations. Failure occurs when the agent identifies the correct high-level steps but fails to execute the underlying calculations or transitions between those steps accurately.
+  - Decompositional Planning (count=3): The ability to break down a complex problem into sequential, logical sub-tasks. Failure occurs when the agent identifies the correct next logical operation but fails to execute it or transition to the next computational step effectively.
+  - procedural decomposition (count=2): The ability to break down a multi-step problem into a logical sequence of operations. Failure occurs when the agent fails to identify all necessary intermediate calculations or the correct order of operations required to reach a solution.
+  - multi-step planning (count=2): The ability to decompose a complex problem into a logical sequence of sub-tasks. Failure occurs when the agent fails to identify the necessary intermediate calculations required to reach the final objective.
+  - algebraic problem decomposition (count=2): The ability to translate natural language constraints into a structured mathematical framework or ratio-based parts system to solve for unknown variables. Failure occurs when the agent cannot correctly map the relationship between entities into a solvable sequence of operations.
+  - arithmetic decomposition (count=2): The ability to break down a complex multi-step problem into individual mathematical operations. This involves identifying the correct sequence of atomic calculations required to reach a solution.
+  - Decomposition of sub-problems (count=2): The ability to break down a complex multi-step problem into a logical sequence of intermediate goals. Failure occurs when the agent identifies the correct high-level strategy but fails to execute the specific calculations or transitions required to reach the solution.
+  - Mathematical problem decomposition (count=1): The ability to break down a multi-part word problem into a structured set of variables and equations. Failure occurs when the agent fails to initiate a systematic plan to isolate the unknown variable from the provided constraints.
+  - strategic planning (count=1): The ability to formulate a logical sequence of operations to solve a multi-step problem. Failure occurs when the proposed methodology (e.g., working backward) is unnecessarily complex or misaligned with the chronological data provided.
+  - sequential logic decomposition (count=1): The ability to break down a multi-step word problem into a structured sequence of operations. Failure occurs when the agent merely restates the problem without initiating a computational or logical strategy.
+  - Decomposition of multi-step problems (count=1): The ability to break down a complex problem into a logical sequence of sub-tasks. Failure occurs when the agent identifies redundant or inefficient intermediate steps that do not streamline the final calculation.
+  - Decomposition of multi-step operations (count=1): The ability to break down a complex problem into smaller, manageable sub-tasks and execute them sequentially. Failure occurs when the agent initiates a single component of a larger calculation without maintaining the global context of the required sum.
+  - sub-problem decomposition (count=1): The ability to break down a complex multi-step problem into smaller, logical intermediate calculations. Failure occurs when the agent identifies a necessary sub-step but has not yet synthesized the final required value.
+  - problem decomposition planning (count=1): The ability to break down a multi-step word problem into a sequence of logical sub-tasks or mathematical operations. Failure occurs when the agent merely restates the prompt without initiating a concrete strategy.
+- Examples:
+  - [gsm8k_10] step 0 reasoning  [multi-step problem decomposition]: Problem: A new program had 60 downloads in the first month. The number of downloads in the second month was three times as many as the downloads in the first month, but then reduced by 30% in the third month. How many downloads did the program have total over the three months? I need to solve this step by step.
+  - [gsm8k_17] step 0 reasoning  [multi-step problem decomposition]: Problem: Jill gets paid $20 per hour to teach and $30 to be a cheerleading coach. If she works 50 weeks a year, 35 hours a week as a teacher and 15 hours a week as a coach, what's her annual salary? I need to solve this step by step.
+  - [gsm8k_57] step 2 reasoning  [mathematical strategy formulation]: Overall approach: First, we need to find out how much weight the truck can carry in addition to its own weight and the driver's weight. Then, we divide this available weight by the weight of each box to find the maximum number of boxes.
+
+## Tool Interaction and Argument Synthesis
+- Description: The ability to correctly format tool calls and process the resulting outputs back into the reasoning chain.
+- Size: 104
+- Repair success rate: 0.7115
+- Dominant step types: [('tool_response', 63), ('tool_call', 41)]
+- Dominant tools: [('calculator', 104)]
+- Member skill labels:
+  - tool argument synthesis (count=76): The ability to correctly translate a planned mathematical operation into the specific syntax and parameters required by an external tool. Failure occurs when the agent identifies the correct logic but fails to execute the tool call correctly.
+  - tool output interpretation (count=18): The ability to correctly process and integrate the numerical result returned by a tool into the ongoing problem-solving context. Failure occurs when the agent receives a correct calculation but fails to use it as a basis for subsequent logical steps.
+  - tool output processing (count=5): The ability to correctly interpret and integrate the numerical result returned by a computational tool into the ongoing reasoning chain. Failure occurs when the agent receives a valid output but fails to contextualize it for the next logical step.
+  - tool output validation (count=2): The ability to verify that a tool's returned value is logically consistent with the input parameters and the intended mathematical operation. This failure occurs when an agent accepts a tool response that does not correctly reflect the execution of the provided expression.
+  - tool output verification (count=2): The ability to validate that a tool's returned value matches the expected output of the provided expression. This failure occurs when a tool returns a value that is mathematically inconsistent with the input parameters.
+  - tool output integration (count=1): The ability to correctly receive and incorporate the results of an external tool call back into the reasoning process. Failure occurs when the agent fails to use the returned value to advance the state of the problem.
+- Examples:
+  - [gsm8k_49] step 4 tool_call calculator [tool argument synthesis]: 
+  - [gsm8k_58] step 4 tool_call calculator [tool argument synthesis]: 
+  - [gsm8k_63] step 5 tool_response calculator [tool output interpretation]: 
+
+## Redundancy and Efficiency Management
+- Description: The ability to recognize previously computed results and avoid unnecessary re-calculation or redundant tool calls.
+- Size: 102
+- Repair success rate: 0.8137
+- Dominant step types: [('tool_call', 66), ('reasoning', 36)]
+- Dominant tools: [('calculator', 66)]
+- Member skill labels:
+  - redundant computation synthesis (count=45): The ability to utilize previously computed intermediate results to simplify subsequent operations. Failure occurs when the agent re-calculates a value already stored in the context, increasing the risk of syntax errors or tool overhead.
+  - redundant computation execution (count=19): The ability to recognize when a required value has already been computed and avoid unnecessary re-calculation or redundant logic steps. This failure occurs when an agent attempts to perform a rounding operation on an integer result that was already finalized in a previous step.
+  - redundant computation planning (count=15): The ability to track intermediate state and build upon previously computed results rather than re-calculating nested expressions. This failure involves inefficiently re-incorporating already solved sub-problems into new expressions.
+  - redundant expression synthesis (count=6): The ability to utilize previously computed intermediate results to simplify complex expressions. Failure occurs when the agent reconstructs a full nested expression instead of referencing the already verified output of a prior step.
+  - redundant operation planning (count=3): The ability to track state across a multi-step plan and avoid repeating calculations that have already been completed in previous steps.
+  - redundant tool execution (count=3): The ability to recognize that a required value has already been computed in previous steps and can be reused without re-invoking a tool for the same complex expression.
+  - redundant computation management (count=2): The ability to track and reuse previously computed intermediate results to maintain efficiency and avoid unnecessary re-calculation steps. This failure occurs when an agent repeats complex expressions that have already been solved in the immediate context.
+  - redundant tool invocation (count=2): The ability to determine when a tool call is necessary versus when a value is already known or trivial. Failure occurs when the agent invokes a computational tool for a static constant without performing any mathematical operation.
+  - redundant step execution (count=1): The ability to track state and progress within a multi-step plan to avoid repeating operations that have already been successfully completed. This failure involves re-initiating a sub-task despite having the result in the immediate context.
+  - computational redundancy management (count=1): The ability to utilize previously computed intermediate results to simplify subsequent operations rather than reconstructing complex, nested expressions from scratch.
+  - intermediate result reuse (count=1): The ability to efficiently utilize previously computed values in subsequent calculations rather than re-constructing complex expressions from scratch. Failure occurs when an agent redundantly recalculates or fails to reference a stored variable.
+  - redundant calculation logic (count=1): The ability to maintain an efficient computational state by tracking previously computed values. Failure occurs when the agent re-calculates a sub-component that was already finalized in a prior step, leading to potential double-counting or inefficiency.
+  - logical step redundancy (count=1): The ability to recognize when a value has already been derived or is logically equivalent to a previous result, avoiding unnecessary computational steps. This failure occurs when the agent repeats an identical operation for a complementary set without referencing the previous output.
+  - redundant computation logic (count=1): The ability to recognize when a value has already been derived or when a sub-calculation is identical to a previous step, avoiding unnecessary re-computation or potential logic loops.
+  - redundant operation logic (count=1): The ability to recognize when a sub-calculation has already been completed and correctly integrate the result into subsequent steps without re-calculating the entire expression.
+- Examples:
+  - [gsm8k_57] step 9 reasoning  [redundant computation execution]: Step 3: Since we can't have a fraction of a box, round down to the nearest whole number. Operation: other Expression: Math.floor((5000 - 3755) / 15)
+  - [gsm8k_57] step 10 tool_call calculator [redundant computation execution]: 
+  - [gsm8k_58] step 7 tool_call calculator [redundant computation synthesis]: 
+
+## Entity and Category Accounting
+- Description: The ability to correctly identify, count, and categorize distinct entities or groups mentioned in a problem.
+- Size: 45
+- Repair success rate: 0.5556
+- Dominant step types: [('reasoning', 31), ('tool_call', 9), ('llm_response', 4), ('tool_response', 1)]
+- Dominant tools: [('calculator', 10)]
+- Member skill labels:
+  - unit conversion logic (count=5): The ability to correctly identify and apply conversion factors between different measurement systems or scales. Failure occurs when the agent incorrectly initiates a conversion step that is redundant or logically inconsistent with the target output units.
+  - variable reference consistency (count=2): The ability to correctly map previously computed values to the appropriate variables in subsequent mathematical expressions. Failure occurs when an agent uses an incorrect intermediate result or an arbitrary value instead of the relevant calculated output.
+  - Entity Category Classification (count=2): The ability to distinguish between relevant and irrelevant categories based on a specific target criteria. Failure occurs when the agent includes non-target entities (e.g., invertebrates) in a calculation restricted to a specific biological class (e.g., fish).
+  - state transition modeling (count=2): The ability to correctly sequence and invert operations when tracking the state of a variable across multiple chronological events. Failure occurs when the agent incorrectly identifies the temporal order or the direction of change (addition vs. subtraction) required to reconstruct a previous state.
+  - multi-step operation planning (count=2): The ability to decompose a complex calculation into its constituent parts and ensure all components are included in the final expression. Failure occurs when a sub-calculation is performed in isolation, neglecting the required integration of other constants or variables.
+  - variable value tracking (count=2): The ability to correctly map previously computed results or provided constants to the correct variables in subsequent operations. Failure occurs when the agent uses an incorrect operand or a placeholder instead of the specific value derived in a prior step.
+  - mathematical rate derivation (count=2): The ability to extract and normalize quantitative rates from provided temporal data to establish a baseline for further calculation. Failure occurs when the agent identifies the correct operation but fails to execute or integrate the resulting value into the subsequent logic flow.
+  - multi-step variable mapping (count=2): The ability to correctly map intermediate results to the final calculation requirements. Failure occurs when the agent fails to account for all multipliers or nested quantities (e.g., members per group) in the final expression.
+  - intermediate calculation formulation (count=1): The ability to correctly translate a conceptual step into a specific mathematical operation required for a multi-step problem. Failure occurs when the agent identifies the correct goal but selects an incomplete or incorrect sub-operation to achieve it.
+  - mathematical premise mapping (count=1): The ability to correctly map problem variables to operations without redundant or circular logic. The failure occurs when an agent applies a rate or ratio that has already been accounted for in a previous calculation step.
+  - mathematical sub-problem decomposition (count=1): The ability to break down a complex multi-step problem into discrete, sequential arithmetic operations. Failure occurs when the agent identifies the correct next logical step but has not yet executed the calculation or integrated it into the global solution state.
+  - initial state integration (count=1): The ability to incorporate pre-existing conditions or baseline values into a multi-step plan. Failure occurs when the agent overlooks static starting values while planning a sequence of cumulative operations.
+  - mathematical plan formulation (count=1): The ability to decompose a multi-step word problem into a sequence of logical operations. Failure occurs when the agent fails to complete the mapping of problem constraints into a comprehensive execution plan.
+  - Premise Consistency Verification (count=1): The ability to identify and reconcile conflicting information within a problem statement. The failure occurs when the agent accepts contradictory premises (e.g., 'ten stalls' vs 'twenty stalls') without resolving the discrepancy before proceeding.
+  - multi-step logic decomposition (count=1): The ability to break down a complex problem into a sequence of logical operations. Failure occurs when the agent identifies the necessary intermediate values but fails to account for how constraints on one subset (e.g., men) affect the remaining subset (e.g., women).
+  - mathematical plan decomposition (count=1): The ability to break down a multi-step word problem into a sequence of discrete, logically ordered operations. Failure occurs when the agent fails to fully specify or correctly structure the intermediate calculations required for a final comparison.
+  - unit conversion management (count=1): The ability to identify and apply necessary unit transformations (e.g., watts to kilowatts) within a multi-step calculation to ensure the final output matches the requested metric.
+  - variable reference disambiguation (count=1): The ability to correctly map descriptive phrases to their corresponding numerical values or states within a multi-step problem. Failure occurs when the agent selects the wrong antecedent value for a calculation despite having the correct logic.
+  - unit conversion and synthesis (count=1): The ability to normalize disparate units of measurement into a consistent format before performing arithmetic operations. Failure occurs when temporal or quantitative units are not correctly translated into a common base.
+  - sequential variable tracking (count=1): The ability to correctly reference and carry forward the output of a previous computational step as an input for the current operation. Failure occurs when the agent uses an incorrect value or a placeholder instead of the established intermediate result.
+  - logical entity counting (count=1): The ability to correctly identify and aggregate all distinct entities mentioned in a problem statement. Failure occurs when the agent identifies a subset of a group but fails to include the primary members of that group in the total count.
+  - entity inclusion logic (count=1): The ability to identify and include all relevant entities in a final summation, including the host or primary actor when the context requires a total count.
+  - algebraic variable isolation (count=1): The ability to decompose a composite total into its constituent parts by identifying known values and solving for the remaining unknown variable. Failure occurs when the agent identifies the steps but fails to explicitly define the mathematical relationship needed to extract the hidden unit cost.
+  - variable value mapping (count=1): The ability to correctly map previously computed values or constants to the correct variables in a subsequent calculation. Failure occurs when the agent uses an incorrect operand from the context instead of the specific value required by the logic.
+  - mathematical rate modeling (count=1): The ability to derive a constant rate from initial data points and apply it to a target value to determine a total duration. Failure occurs when the agent cannot correctly set up the proportionality or unit rate required for the solution.
+  - multi-condition parameter extraction (count=1): The ability to identify and categorize distinct numerical variables associated with different states or time intervals within a word problem. Failure occurs when the agent fails to map specific rates to their corresponding durations or conditions.
+  - multi-agent entity accounting (count=1): The ability to track and aggregate quantities across multiple distinct subjects or entities mentioned in a problem. Failure occurs when the agent calculates for a single entity while ignoring the multiplier required for the total group.
+  - parameter mapping consistency (count=1): The ability to correctly map specific entity attributes to their corresponding calculation parameters. Failure occurs when the agent applies a global constant or a different entity's attribute instead of the specific variable associated with the current subject.
+  - unit value derivation (count=1): The ability to calculate the individual cost of a single item from a total group cost before applying it to subsequent relational calculations. Failure occurs when the agent cannot correctly decompose a total value into its constituent unit price.
+  - multi-step mathematical modeling (count=1): The ability to decompose a complex word problem into a sequence of logical operations and state transitions. Failure occurs when the agent fails to establish a clear algebraic or arithmetic framework for tracking changes over time.
+  - inverse operation mapping (count=1): The ability to correctly identify and apply the inverse mathematical operation when working backward from a known result to an initial state. Failure occurs when the agent applies the wrong operation (e.g., adding instead of subtracting) relative to the direction of the logic flow.
+  - state transition logic (count=1): The ability to correctly map physical events to mathematical operations when reversing a sequence of state changes. Failure occurs when the agent applies an operation that does not correspond to the inverse of the event being reversed.
+  - inverse operation logic (count=1): The ability to correctly reverse mathematical operations when working backward from a known result to an initial state. Failure occurs when the agent applies the wrong arithmetic operation (e.g., subtraction instead of addition) to undo a previous event.
+  - missing variable derivation (count=1): The ability to identify and calculate intermediate variables required for a final computation. The failure occurs when an agent attempts to use a value that has not yet been derived or defined in the reasoning chain.
+- Examples:
+  - [gsm8k_63] step 7 tool_call calculator [intermediate calculation formulation]: 
+  - [gsm8k_73] step 9 reasoning  [variable reference consistency]: Step 3: Calculate the total interest for all cell phones. Operation: multiplication Expression: 7.  5 * 5
+  - [gsm8k_89] step 7 tool_call calculator [mathematical premise mapping]: 
+
+## State Tracking and Variable Maintenance
+- Description: The ability to maintain, update, and retrieve the current value of variables and intermediate results across multiple reasoning steps.
+- Size: 38
+- Repair success rate: 0.4474
+- Dominant step types: [('reasoning', 31), ('tool_call', 7)]
+- Dominant tools: [('calculator', 7)]
+- Member skill labels:
+  - state tracking (count=6): The ability to maintain and update the current state of variables or quantities across multiple reasoning steps. Failure occurs when the agent loses track of which quantities have been modified or which values represent the current state of the system.
+  - variable state tracking (count=3): The ability to maintain and correctly aggregate intermediate values and initial conditions into a cumulative total. Failure occurs when the agent neglects to include previously calculated or provided constants in a final summation.
+  - state tracking consistency (count=3): The ability to maintain and retrieve accurate values from previous reasoning steps when constructing new expressions. Failure occurs when the agent uses an incorrect value from a prior step or a default constant instead of the derived result.
+  - state tracking maintenance (count=3): The ability to accurately track and retrieve the current value of a variable after multiple transformations. Failure occurs when the agent reverts to an initial or incorrect intermediate value instead of the most recent state.
+  - iterative state tracking (count=2): The ability to maintain and update a variable over multiple discrete time steps or cycles. Failure occurs when the agent calculates a single-step transition but fails to account for the cumulative effect of repeated operations over a specified duration.
+  - state tracking and integration (count=2): The ability to maintain and update the current state of variables across multiple reasoning steps. Failure occurs when the agent loses track of which values represent which entities, leading to incorrect combinations of data.
+  - recursive state tracking (count=2): The ability to maintain and update a running total or state across multiple sequential operations. Failure occurs when the agent fails to utilize previously computed intermediate results, leading to overly complex or redundant expressions.
+  - internal state consistency (count=2): The ability to maintain and utilize previously calculated values accurately across reasoning steps. Failure occurs when an agent ignores its own established data in favor of incorrect or hallucinated values.
+  - state tracking logic (count=2): The ability to maintain an accurate representation of cumulative values and state changes across multiple sequential operations. Failure occurs when the agent loses track of the current state or incorrectly aggregates intermediate values.
+  - multi-step state tracking (count=2): The ability to maintain and aggregate intermediate values across a sequence of operations to reach a cumulative total. Failure occurs when the agent identifies the correct components but fails to finalize the calculation or integrate them into the broader goal.
+  - intermediate value tracking (count=1): The ability to accurately maintain and propagate calculated values across multiple reasoning steps without introducing transcription errors or hallucinated constants.
+  - cross-step data consistency (count=1): The ability to accurately carry over intermediate results from previous steps into subsequent calculations. Failure occurs when an agent uses incorrect or hallucinated values instead of the outputs generated in the preceding trace.
+  - intermediate value retrieval (count=1): The ability to correctly identify and carry forward the results of previous computational steps into subsequent operations. Failure occurs when the agent loses track of which calculated value represents the current state of the problem.
+  - state tracking and aggregation (count=1): The ability to maintain an accurate tally of multiple evolving quantities over time and aggregate them correctly based on logical conditions. The failure occurs when the agent fails to account for all relevant previous states or subsets when calculating a final cumulative value.
+  - state tracking synthesis (count=1): The ability to maintain and update the current state of a variable across multiple sequential transformations. Failure occurs when the agent fails to incorporate previously computed intermediate values into the current calculation step.
+  - logical consistency maintenance (count=1): The ability to maintain and propagate intermediate results correctly through a multi-step reasoning chain. Failure occurs when an agent discards a previously calculated value in favor of an arbitrary or incorrect constant.
+  - state-dependent variable tracking (count=1): The ability to maintain and update the current value of a variable based on sequential operations and new information. Failure occurs when the agent loses track of the current state or applies an incorrect constant to a previously calculated value.
+  - state-dependent value tracking (count=1): The ability to maintain and reference the correct intermediate result from a previous step when performing sequential operations. Failure occurs when the agent uses an incorrect or hallucinated value instead of the current state.
+  - state tracking accuracy (count=1): The ability to maintain and update the current value of a variable across multiple sequential operations. Failure occurs when an agent uses an incorrect intermediate value from a previous step as input for the next calculation.
+  - state tracking and retrieval (count=1): The ability to accurately maintain and retrieve intermediate values derived in previous steps for use in subsequent calculations. Failure occurs when an agent uses an incorrect or hallucinated value instead of the established state.
+  - state tracking and propagation (count=1): The ability to maintain and correctly transfer intermediate results from previous steps into subsequent calculations. Failure occurs when an agent loses track of a derived value and uses an incorrect or hallucinated number in the next stage of a multi-step problem.
+- Examples:
+  - [gsm8k_20] step 6 reasoning  [state tracking]: Step 2: Calculate the amount of orange drink remaining after the spill. Operation: subtraction Expression: 10 - 1
+  - [gsm8k_73] step 12 reasoning  [intermediate value tracking]: Step 4: Calculate the total cost with interest. Operation: addition Expression: 750 + 7.5
+  - [gsm8k_73] step 13 tool_call calculator [cross-step data consistency]: 
+
+## Relational and Comparative Logic
+- Description: The ability to correctly interpret and model linguistic comparisons, ratios, and relative changes (e.g., 'more than', 'percentage of').
+- Size: 36
+- Repair success rate: 0.6667
+- Dominant step types: [('reasoning', 25), ('tool_call', 8), ('llm_response', 3)]
+- Dominant tools: [('calculator', 8)]
+- Member skill labels:
+  - relational constraint mapping (count=5): The ability to translate comparative linguistic descriptions into correct mathematical expressions. Failure occurs when the agent identifies the correct operation but fails to correctly map the quantitative relationships defined in the text.
+  - logical dependency mapping (count=3): The ability to correctly identify the relationship between subsets and totals when calculating remainders. The failure occurs when the agent assumes a direct subtraction between two independent variables to find a specific sub-category count.
+  - relational logic mapping (count=3): The ability to correctly translate comparative linguistic phrases into mathematical relationships. Failure occurs when the agent misinterprets the direction of a difference or the relative magnitude between two entities.
+  - mathematical relation mapping (count=2): The ability to correctly translate verbal descriptions of rates or ratios into appropriate mathematical operations. Failure occurs when the agent identifies the correct variables but applies an incorrect operator or logic to relate them.
+  - mathematical logic mapping (count=2): The ability to translate natural language relationships into correct mathematical operations. Failure occurs when the agent identifies the correct variables but applies an incorrect operator or redundant calculation that does not advance the problem state.
+  - mathematical operator translation (count=2): The ability to correctly translate natural language comparative phrases into their corresponding mathematical operations. A failure occurs when an incremental increase (e.g., 'X% more than Y') is incorrectly modeled as a simple percentage calculation (e.g., 'X% of Y').
+  - relational percentage calculation (count=2): The ability to correctly model 'percentage more than' relationships as multiplicative increases (1 + p) rather than simple additive offsets. Failure occurs when an agent treats a relative increase as an absolute percentage point addition.
+  - relational information extraction (count=2): The ability to identify and map quantitative relationships between multiple entities across different timeframes. Failure occurs when the agent fails to correctly link a value from one entity's past state to another entity's current state.
+  - proportional reasoning application (count=1): The ability to correctly apply a ratio or fraction to a modified quantity after a portion of the total mixture has been removed. Failure occurs when the agent correctly identifies the new total volume but fails to maintain the constant concentration property of the mixture.
+  - ratio-to-part conversion (count=1): The ability to translate a proportional relationship between entities into a sum of parts for distribution. Failure occurs when the agent cannot correctly map relative quantities to a total divisor.
+  - relational logic translation (count=1): The ability to accurately convert natural language comparative statements into mathematical relationships. Failure occurs when the directionality of a relationship is inverted or misinterpreted during the modeling phase.
+  - relational constraint interpretation (count=1): The ability to accurately translate natural language descriptions of mathematical relationships into correct logical operations. Failure occurs when the direction of a relationship (e.g., 'fewer than') is inverted or misapplied during expression formulation.
+  - Mathematical Premise Interpretation (count=1): The ability to correctly map textual constraints to mathematical operations. The failure occurs when the agent misinterprets a relational comparison, leading to an incorrect variable definition in the resulting expression.
+  - logical rule application (count=1): The ability to translate conditional logic or business rules into correct mathematical operations. Failure occurs when the agent applies an incorrect ratio or formula that does not reflect the stated constraints.
+  - relational operator interpretation (count=1): The ability to correctly translate comparative phrases (e.g., 'X% more than Y') into mathematical operations. Failure occurs when a relative increase is treated as a simple additive constant.
+  - relational mathematical modeling (count=1): The ability to translate relative comparative statements (e.g., 'X% more than Y') into correct mathematical operations. Failure occurs when the agent treats a relative percentage increase as an absolute additive constant.
+  - mathematical relation modeling (count=1): The ability to translate natural language descriptions of relative quantities into correct mathematical expressions. Failure occurs when additive logic is incorrectly applied to multiplicative relationships, such as treating 'percentage more' as a simple addition of percentage points.
+  - relational directionality logic (count=1): The ability to correctly identify the minuend and subtrahend in a comparison task. Failure occurs when the agent reverses the order of subtraction, leading to a negative or logically inverted result.
+  - relational variable mapping (count=1): The ability to identify and link interdependent variables across multiple sentences to establish a consistent set of initial values. Failure occurs when the agent cannot resolve circular or cross-referenced constraints into a coherent starting state.
+  - relational variable extraction (count=1): The ability to correctly identify and map quantitative relationships between entities across different timeframes or categories. Failure occurs when the agent misidentifies which base value a relative modifier (e.g., 'more than') applies to.
+  - Mathematical Variable Mapping (count=1): The ability to correctly map problem variables to their roles in a formula. The failure occurs when a variable representing a total count is incorrectly labeled as a per-unit rate.
+  - arithmetic sign interpretation (count=1): The ability to correctly interpret the directionality of a difference to distinguish between a net loss and a final balance. Failure occurs when the agent performs a calculation but fails to map the resulting sign to the semantic meaning of the question.
+  - mathematical relation translation (count=1): The ability to accurately translate natural language descriptions of relative quantities into mathematical expressions. A common failure involves confusing a percentage increase (e.g., '60% bigger than') with a simple percentage calculation (e.g., '60% of').
+- Examples:
+  - [gsm8k_20] step 9 reasoning  [proportional reasoning application]: Step 3: Calculate the amount of water in the remaining orange drink. Operation: multiplication Expression: 9 * (2/3)
+  - [gsm8k_244] step 6 reasoning  [relational constraint mapping]: Step 2: Calculate how many fries Colby took. Operation: subtraction Expression: 5 - 3
+  - [gsm8k_307] step 6 reasoning  [mathematical relation mapping]: Step 2: Determine the number of weeks Sandy needs to lose the same amount of weight that Joey loses in one week. Operation: multiplication Expression: 1 * 4
+
+## Sequential and Dependency Tracking
+- Description: The ability to order operations correctly and ensure that prerequisite values are derived before they are needed.
+- Size: 23
+- Repair success rate: 0.5217
+- Dominant step types: [('reasoning', 18), ('llm_response', 3), ('tool_call', 2)]
+- Dominant tools: [('calculator', 2)]
+- Member skill labels:
+  - sequential logic planning (count=6): The ability to decompose a multi-step problem into a correct chronological sequence of operations. Failure occurs when the agent fails to account for the cumulative nature of time or the repetition of tasks in a process.
+  - mathematical logic sequencing (count=2): The ability to correctly sequence and combine intermediate results into a final formula. The failure occurs when the agent fails to account for all necessary components of a multi-stage process in the final calculation.
+  - logical dependency tracking (count=2): The ability to maintain consistency across sequential reasoning steps and ensure that derived values used in subsequent calculations are logically sound and based on correct prior inferences.
+  - logical dependency sequencing (count=2): The ability to identify and order the necessary intermediate calculations required to solve a multi-step problem. Failure occurs when the agent initiates a calculation without first deriving the prerequisite values defined in the problem's constraints.
+  - logical sequence modeling (count=2): The ability to correctly translate a multi-step narrative process into a logical sequence of operations. Failure occurs when the agent misinterprets the scope or order of cumulative actions described in the prompt.
+  - sequential logic tracking (count=2): The ability to maintain state and progress through a multi-step plan without redundant or circular execution. This failure occurs when an agent repeats a previously completed sub-task instead of advancing to the next logical step.
+  - sequential dependency tracking (count=1): The ability to correctly reference and incorporate the results of previous computational steps into subsequent logic. Failure occurs when the agent uses the original expression or raw values instead of the derived intermediate result.
+  - logical dependency planning (count=1): The ability to sequence sub-tasks in a logically sound order where each step has sufficient information to be solved. Failure occurs when a plan requires an intermediate value that cannot be derived from the provided constraints.
+  - mathematical operation sequencing (count=1): The ability to correctly order and execute intermediate calculations within a multi-step problem. Failure occurs when the agent initiates a sub-calculation that ignores necessary modifiers or constraints defined in the problem logic.
+  - logical sequence planning (count=1): The ability to order computational steps in a valid dependency chain. The failure occurs when the agent attempts to execute a calculation that is not the logical first step defined in its own strategy or required by the problem's dependencies.
+  - arithmetic operation sequencing (count=1): The ability to decompose a multi-step problem into individual operations and execute them in a logical order to derive intermediate values. Failure occurs when the agent initiates a calculation step based on previously derived or stated values.
+  - multi-step dependency resolution (count=1): The ability to correctly sequence and integrate intermediate values from previous steps into a new mathematical expression based on stated constraints.
+  - multi-step operation sequencing (count=1): The ability to correctly order and execute independent sub-calculations within a larger problem-solving workflow. This failure occurs when an agent correctly identifies a sub-task but fails to integrate it with previous results or the final goal.
+- Examples:
+  - [gsm8k_7] step 1 llm_response  [sequential logic planning]: {   "reasoning": "First, calculate the time to download 40% of the file. Then, add the restart time. Finally, calculate the total download time based on the file size and download speed.",   "steps": [     {       "description": "Calculate the size of the file downloaded before the restart.",       "operation": "multiplication",       "expression": "200 * 0.40"     },     {       "description": "Calculate the time to download the first part of the file.",       "operation": "division",       "expression": "(200 * 0.40) / 2"     },     {       "description": "Add the restart time to the download time of the first part of the file.",       "operation": "addition",       "expression": "((200 * 0.40) / 2) + 20"     },     {       "description": "Calculate the total download time, including the restart.",       "operation": "division",       "expression": "(200 / 2) + 20"     }   ],   "final_answer": "120" }
+  - [gsm8k_7] step 12 reasoning  [mathematical logic sequencing]: Step 4: Calculate the total download time, including the restart. Operation: division Expression: (200 / 2) + 20
+  - [gsm8k_177] step 2 reasoning  [sequential logic planning]: Overall approach: First, calculate the expenses for rent, car fuel, and charity donation. Then, calculate the total amount spent on daughter and wife. After that, we will sum all the expenses and subtract from the initial salary to find the remaining amount.
+
+## Arithmetic Execution and Evaluation
+- Description: The ability to accurately perform basic calculations and evaluate the numerical correctness of expressions.
+- Size: 22
+- Repair success rate: 0.9091
+- Dominant step types: [('tool_response', 20), ('reasoning', 1), ('tool_call', 1)]
+- Dominant tools: [('calculator', 21)]
+- Member skill labels:
+  - mathematical expression evaluation (count=9): The ability to correctly compute the result of a multi-step arithmetic expression according to the order of operations. Failure occurs when the tool or process returns an incorrect numerical result for a valid mathematical string.
+  - arithmetic expression evaluation (count=5): The ability to correctly compute the result of a mathematical expression using provided tools. Failure occurs when the tool returns an incorrect value for a standard arithmetic operation.
+  - arithmetic operation execution (count=4): The ability to accurately perform basic mathematical operations or process tool outputs. Failure occurs when the computational result provided by a tool or internal logic is incorrect for the given expression.
+  - numerical precision management (count=1): The ability to handle floating-point arithmetic results and apply appropriate rounding or precision logic before subsequent calculations. Failure occurs when raw, imprecise tool outputs are propagated into final aggregations without normalization.
+  - nested expression evaluation (count=1): The ability to correctly process and compute multi-step mathematical operations within a single tool call. Failure occurs when the agent provides a result that does not mathematically follow from the provided nested expression.
+  - arithmetic computation execution (count=1): The ability to accurately perform mathematical operations or utilize computational tools to derive a correct numerical result from a defined expression. Failure occurs when the tool or process yields an incorrect value for a straightforward calculation.
+  - mathematical operation execution (count=1): The ability to translate a formulated mathematical expression into a tool-compatible format and execute the calculation correctly. Failure occurs when the agent correctly identifies the necessary operation but fails to process the resulting value or transition to the next logical step.
+- Examples:
+  - [gsm8k_10] step 9 reasoning  [numerical precision management]: Step 3: Calculate the total downloads over three months. Operation: addition Expression: 60 + (60 * 3) + ((60 * 3) * (1 - 0.30))
+  - [gsm8k_155] step 14 tool_response calculator [nested expression evaluation]: 
+  - [gsm8k_198] step 8 tool_response calculator [arithmetic expression evaluation]: 
+
+## Temporal Reasoning and Constraints
+- Description: The ability to reason about time intervals, durations, 24-hour cycles, and calendar-based constraints.
+- Size: 21
+- Repair success rate: 0.5714
+- Dominant step types: [('reasoning', 14), ('tool_call', 4), ('tool_response', 2), ('llm_response', 1)]
+- Dominant tools: [('calculator', 6)]
+- Member skill labels:
+  - temporal unit conversion (count=4): The ability to convert time durations between different units of measurement to align with the frequency of recurring events. Failure occurs when the agent fails to correctly map the total duration to the operational time step.
+  - temporal constraint extraction (count=3): The ability to identify and isolate specific time components from a total duration based on provided constraints. Failure occurs when the agent fails to correctly partition a total value into its constituent parts for subsequent calculations.
+  - temporal arithmetic logic (count=2): The ability to correctly model and calculate durations across a 24-hour clock cycle. Failure occurs when simple subtraction is applied to clock times without accounting for the modulo-24 nature of time or the transition past midnight.
+  - temporal logic modeling (count=2): The ability to correctly represent time intervals and modular arithmetic (e.g., 24-hour cycles) within mathematical expressions. Failure occurs when the model uses simple subtraction for wrap-around time values, leading to negative durations.
+  - temporal sequence modeling (count=1): The ability to correctly order and aggregate time-based events in a multi-stage process. Failure occurs when the agent fails to account for the cumulative nature of sequential durations or omits the final successful execution phase.
+  - Temporal constraint reasoning (count=1): The ability to accurately map time-based intervals (e.g., 'the rest of the week') to specific numerical quantities based on a defined starting point and total duration.
+  - temporal knowledge retrieval (count=1): The ability to accurately retrieve and apply static factual information regarding calendar systems and time periods to a specific problem context.
+  - temporal constraint decomposition (count=1): The ability to partition a total duration into discrete, sequential segments based on changing conditions. Failure occurs when the agent fails to account for the remaining time in a fixed period after identifying initial sub-intervals.
+  - temporal constraint tracking (count=1): The ability to maintain an accurate tally of a resource or time period across multiple sequential operations. Failure occurs when the agent incorrectly calculates the remaining balance of a total after accounting for previous segments.
+  - temporal state tracking (count=1): The ability to maintain an accurate count or status of variables as they change over a sequential timeline. Failure occurs when the agent loses track of the remaining quantity of an item after specific intervals or events have passed.
+  - temporal reasoning (count=1): The ability to accurately calculate duration across day boundaries and convert 12-hour clock times to a continuous timeline. Failure occurs when the agent uses simple subtraction on raw clock values without accounting for the transition past midnight.
+  - temporal logic reasoning (count=1): The ability to calculate durations across day boundaries and handle non-standard time formats. Failure occurs when the agent uses simple arithmetic on raw clock numbers without accounting for the 24-hour cycle or AM/PM transitions.
+  - temporal reasoning logic (count=1): The ability to accurately calculate duration across day boundaries and handle 24-hour time conversions. Failure occurs when the agent uses simple arithmetic on clock face numbers instead of accounting for the overnight transition.
+  - Temporal arithmetic formulation (count=1): The ability to correctly model time-based calculations across a 24-hour cycle using modular arithmetic or duration logic. Failure occurs when simple subtraction is applied to clock times without accounting for the day-night transition.
+- Examples:
+  - [gsm8k_7] step 9 reasoning  [temporal sequence modeling]: Step 3: Add the restart time to the download time of the first part of the file. Operation: addition Expression: ((200 * 0.40) / 2) + 20
+  - [gsm8k_122] step 9 reasoning  [Temporal constraint reasoning]: Step 3: Calculate sleep for Thursday to Sunday (5 days). Operation: addition Expression: (8 - 2 + 1) * 5
+  - [gsm8k_343] step 9 reasoning  [temporal knowledge retrieval]: Step 3: Determine the number of days in June. Operation: other Expression: 30
+
+## Information Extraction and Mapping
+- Description: The ability to identify, isolate, and categorize relevant numerical data and constraints from natural language text.
+- Size: 19
+- Repair success rate: 0.5789
+- Dominant step types: [('reasoning', 15), ('llm_response', 3), ('tool_call', 1)]
+- Dominant tools: [('calculator', 1)]
+- Member skill labels:
+  - mathematical constraint extraction (count=4): The ability to correctly identify and apply all quantitative constraints from a problem statement into a formal expression. Failure occurs when an agent overlooks a secondary operation or modifier required by the logic.
+  - information extraction and mapping (count=3): The ability to identify and categorize quantitative relationships and constraints from a natural language problem statement. Failure occurs when the agent fails to translate narrative descriptions into a structured set of variables or logical premises.
+  - information extraction and synthesis (count=2): The ability to identify and integrate all relevant constraints and variables from a problem statement into a computational plan. Failure occurs when the agent overlooks specific quantitative details or conditions provided in the source text.
+  - Constraint Identification (count=1): The ability to accurately identify and isolate all variables and fixed values within a problem statement. Failure occurs when a known quantity is incorrectly categorized as an unknown or when a specific constraint is overlooked during planning.
+  - Entity Attribute Extraction (count=1): The ability to identify and map specific numerical values to distinct entities and categories within a word problem. Failure occurs when the agent fails to decompose complex relational statements into individual data points for further processing.
+  - Entity Property Extraction (count=1): The ability to correctly identify and extract specific numerical values associated with entities from a provided text to form a mathematical expression. Failure occurs when the agent selects the wrong attribute or value for a calculation step.
+  - mathematical requirement extraction (count=1): The ability to identify and parse all necessary numerical constraints and temporal variables from a problem statement. Failure occurs when an agent fails to recognize implicit variables like specific month lengths or relative percentage increases.
+  - Entity-Value Mapping (count=1): The ability to correctly identify and extract numerical values associated with specific entities from a problem description to form a mathematical expression. Failure occurs when the agent misidentifies the quantity or the value associated with a set of objects.
+  - Constraint extraction (count=1): The ability to identify and extract all necessary numerical and logical constraints from a problem statement. Failure occurs when the agent overlooks missing variables or underspecified parameters required for a calculation.
+  - variable extraction and mapping (count=1): The ability to correctly identify and extract numerical values from a problem statement and map them to their corresponding variables or entities. Failure occurs when the agent identifies a value but fails to recognize it as a rate or count requiring further context.
+  - Mathematical parameter extraction (count=1): The ability to correctly identify and map numerical values from a problem description to their corresponding variables in a mathematical model. Failure occurs when an agent misidentifies a constant or uses an incorrect value for a specific variable during expression formulation.
+  - variable mapping and extraction (count=1): The ability to correctly identify and map numerical values from the problem context to their corresponding variables in a mathematical expression. Failure occurs when the agent substitutes an incorrect constant for a defined parameter.
+  - information extraction and categorization (count=1): The ability to parse complex multi-entity descriptions and organize them into distinct categories for comparative analysis. Failure occurs when the agent cannot systematically group attributes from a dense problem statement.
+- Examples:
+  - [gsm8k_107] step 2 reasoning  [Constraint Identification]: Overall approach: First, calculate the total TV time from the known episodes. Then, subtract this time from the total TV time to find the time spent on the 30-minute episodes on Wednesday and Thursday. Finally, convert the remaining time into the number of 30-minute episodes watched on Wednesday.
+  - [gsm8k_161] step 0 reasoning  [Entity Attribute Extraction]: Problem: Anakin and Locsin went to the beach today. Anakin caught 10 starfish, 6 sea horses, and 3 clownfish. While Locsin caught 5 fewer starfish than Anakin, 3 fewer sea horses than Anakin, and 2 more clownfish than Anakin. How many fish were they able to catch? I need to solve this step by step.
+  - [gsm8k_161] step 3 reasoning  [Entity Property Extraction]: Step 1: Calculate the number of starfish caught by Locsin. Operation: subtraction Expression: 10 - 5
+
+## Constraint and Logic Application
+- Description: The ability to apply specific rules, constraints, or logical conditions to a problem (e.g., discounts, physical limits).
+- Size: 17
+- Repair success rate: 0.2941
+- Dominant step types: [('reasoning', 10), ('tool_call', 5), ('llm_response', 2)]
+- Dominant tools: [('calculator', 5)]
+- Member skill labels:
+  - mathematical logic application (count=4): The ability to correctly translate word-based constraints into mathematical operations. The failure occurs when the agent applies a subtraction operation to a value that already represents the net duration or misinterprets the sequence of conditional deductions.
+  - mathematical constraint modeling (count=3): The ability to translate natural language problem statements into a consistent set of quantitative relationships and constraints. Failure occurs when the agent fails to identify or link all necessary variables required to solve for an unknown value.
+  - logical constraint mapping (count=3): The ability to correctly map specific variables to their corresponding temporal or conditional constraints within a mathematical expression. Failure occurs when the agent applies a multiplier to the wrong state of a variable (e.g., current value vs. historical value).
+  - logical constraint integration (count=2): The ability to maintain global problem constraints while processing sub-tasks. Failure occurs when the agent loses track of fixed parameters (like total duration) and incorrectly attempts to recalculate them using partial or irrelevant data points.
+  - mathematical constraint handling (count=1): The ability to apply floor or ceiling functions to numerical results based on real-world constraints. Failure occurs when an agent performs a raw calculation without considering that discrete units (like boxes) cannot be fractional.
+  - mathematical constraint decomposition (count=1): The ability to break down a multi-part word problem into distinct arithmetic operations while correctly assigning variables to specific actors. Failure occurs when the agent fails to distinguish between shared costs and individual surcharges.
+  - constraint integration logic (count=1): The ability to synthesize multiple conditional constraints into a coherent plan. The failure occurs when the agent ignores a specific constraint (splitting the base cost) while focusing on another (calculating the tip).
+  - constraint application logic (count=1): The ability to correctly apply global constraints or modifiers (like a store-wide discount) to all relevant items in a set rather than a single subset.
+  - Constraint Satisfaction Monitoring (count=1): The ability to track and validate intermediate results against initial constraints or resource limits. This failure occurs when an agent proceeds with a calculation that violates a known budget or physical constraint established in the problem context.
+- Examples:
+  - [gsm8k_57] step 7 tool_call calculator [mathematical constraint handling]: 
+  - [gsm8k_303] step 0 reasoning  [mathematical constraint modeling]: Problem: Elise has been selling her Dad's collection of 250 books for three years. Each book sells at 20$, and she sold twice as many books in the first year as she has sold in the current year. There are currently 50 unsold books, and her sales number this year is 45. What's the total amount of money she earned in the second year? I need to solve this step by step.
+  - [gsm8k_313] step 12 reasoning  [logical constraint mapping]: Step 4: Calculate the population of Chile six years ago. Operation: multiplication Expression: 3000 * (((46 - 6) / 2) + 6)
+
+## Result Aggregation and Synthesis
+- Description: The ability to combine multiple intermediate results or sub-totals into a final, comprehensive answer.
+- Size: 16
+- Repair success rate: 0.625
+- Dominant step types: [('reasoning', 10), ('tool_call', 4), ('tool_response', 2)]
+- Dominant tools: [('calculator', 6)]
+- Member skill labels:
+  - intermediate result integration (count=4): The ability to synthesize previously computed values into a final composite calculation. Failure occurs when the agent re-specifies raw expressions instead of using the outputs of completed sub-steps.
+  - intermediate result aggregation (count=3): The ability to correctly identify and sum all previously calculated sub-totals to form a cumulative value. Failure occurs when the agent overlooks or misidentifies specific components of the total sum.
+  - multi-step aggregation logic (count=2): The ability to correctly synthesize intermediate results into a final calculation while maintaining scope. Failure occurs when the agent omits required components of the total sum defined by the problem constraints.
+  - intermediate result extraction (count=2): The ability to correctly isolate and return a specific intermediate value from a multi-step calculation as requested by the tool call. Failure occurs when the agent provides a partial component of a calculation instead of the final result of that specific step.
+  - Global State Integration (count=1): The ability to aggregate all relevant data points from a multi-part problem into a final calculation. Failure occurs when the agent focuses only on a subset of the required components (e.g., current results) while neglecting initial or historical data points mentioned in the prompt.
+  - Intermediate value aggregation (count=1): The ability to correctly identify and sum previously computed intermediate results to form a required sub-total. Failure occurs when the agent fails to correctly map specific calculated values to their corresponding categories during synthesis.
+  - Information Integration (count=1): The ability to synthesize all relevant data points from a source text into a final calculation. Failure occurs when a subset of the required operations or variables is omitted during the final synthesis step.
+  - multi-step mathematical synthesis (count=1): The ability to correctly map intermediate results from previous steps into the final calculation of a multi-part problem. Failure occurs when the agent fails to account for the internal structure of the entities (e.g., number of members per group) when calculating a total aggregate.
+  - multi-step result aggregation (count=1): The ability to correctly synthesize and sum intermediate values derived from previous steps into a final comprehensive calculation. Failure occurs when the agent misidentifies or incorrectly combines the set of required variables.
+- Examples:
+  - [gsm8k_107] step 12 reasoning  [intermediate result aggregation]: Step 4: Calculate the total TV time from Monday, Tuesday, Thursday, and Friday. Operation: addition Expression: 2 + 1.5 + 2
+  - [gsm8k_252] step 9 reasoning  [multi-step aggregation logic]: Step 3: Calculate the total number of animals killed today. Operation: addition Expression: (15 - 3) + ((15 - 3) * 3)
+  - [gsm8k_252] step 10 tool_call calculator [Global State Integration]: 
+
+## Goal and Requirement Alignment
+- Description: The ability to ensure that the mathematical operations performed actually answer the specific question asked by the user.
+- Size: 11
+- Repair success rate: 0.2727
+- Dominant step types: [('reasoning', 7), ('tool_call', 4)]
+- Dominant tools: [('calculator', 4)]
+- Member skill labels:
+  - mathematical goal alignment (count=2): The ability to map a specific problem requirement to the correct mathematical operation. Failure occurs when the agent identifies a valid sub-component of the problem but applies an operation that does not directly advance toward the requested metric.
+  - complementary value derivation (count=1): The ability to identify whether a calculation should target the primary value or its complement based on the goal. Failure occurs when the agent calculates the value for the state described (occupied) rather than the state requested (unoccupied).
+  - goal-oriented logic formulation (count=1): The ability to align mathematical operations with the specific objective of the query. The failure involves calculating a new state (remaining consumption) instead of the requested delta (savings).
+  - mathematical operator selection (count=1): The ability to select the correct arithmetic operation to represent a logical relationship between quantities. Failure occurs when an agent applies an operation (e.g., subtraction) that does not align with the intended semantic goal (e.g., calculating a total count).
+  - multi-step goal tracking (count=1): The ability to maintain and execute the final objective of a multi-part problem after completing intermediate sub-tasks. Failure occurs when the agent stops after a sub-calculation instead of performing the final comparative or integrative step.
+  - instruction adherence (count=1): The ability to align reasoning steps with the specific constraints of the user's query. The failure occurs when the agent solves for a sub-component or intermediate value instead of the final metric requested.
+  - goal-state alignment (count=1): The ability to map a calculated result back to the specific metric requested in the problem statement. Failure occurs when the agent correctly calculates a sub-component (e.g., remaining time) but fails to incorporate the initial state to satisfy the 'total' requirement.
+  - problem constraint interpretation (count=1): The ability to correctly map natural language descriptors to mathematical variables. Failure occurs when the agent confuses the quantity to be calculated (e.g., 'left/unused') with its complement (e.g., 'used').
+  - semantic requirement mapping (count=1): The ability to correctly map natural language problem requirements to mathematical operations. The failure occurs when the agent confuses cost components with revenue/earnings components in the final calculation.
+  - semantic problem modeling (count=1): The ability to correctly map natural language problem constraints into a logical mathematical model. Failure occurs when the agent misinterprets the relationship between entities, such as confusing costs with earnings.
+- Examples:
+  - [gsm8k_49] step 7 tool_call calculator [complementary value derivation]: 
+  - [gsm8k_403] step 6 reasoning  [mathematical goal alignment]: Step 2: Calculate the reduced usage time. Operation: subtraction Expression: 8 - 5
+  - [gsm8k_403] step 9 reasoning  [goal-oriented logic formulation]: Step 3: Calculate the reduced daily energy consumption in watt-hours. Operation: multiplication Expression: 900 * (8 - 5)
+
+## Strategic Optimization and Heuristics
+- Description: The ability to select the most efficient path or prioritize variables based on cost-benefit or optimization goals.
+- Size: 8
+- Repair success rate: 0.5
+- Dominant step types: [('reasoning', 5), ('llm_response', 3)]
+- Dominant tools: []
+- Member skill labels:
+  - mathematical strategy optimization (count=1): The ability to select the most efficient computational path to a solution. Failure occurs when an agent performs redundant intermediate calculations (calculating occupied units) instead of directly calculating the complement (unoccupied units) required by the goal.
+  - computational plan optimization (count=1): The ability to design an efficient sequence of operations by identifying common units or simplifying steps before execution. Failure occurs when the agent chooses a redundant conversion path (converting all units to a smaller unit and back) rather than maintaining the target unit throughout.
+  - computational strategy optimization (count=1): The ability to identify the most efficient sequence of operations to reach a goal. Failure occurs when the agent introduces unnecessary intermediate calculations that do not contribute to the final required value.
+  - constraint-based optimization reasoning (count=1): The ability to evaluate multiple variables against a cost-efficiency metric to maximize an output. The failure occurs when the agent defaults to a 'cheapest unit' heuristic instead of calculating the 'yield per dollar' across all available options.
+  - optimization strategy formulation (count=1): The ability to identify the correct objective function and constraints to maximize a value. The failure occurs when the agent selects a heuristic (cheapest unit cost) that does not align with the global optimization goal.
+  - Constraint-based strategy selection (count=1): The ability to identify and prioritize the most efficient variable (cost-per-unit) before performing calculations. Failure occurs when the agent initiates brute-force calculations without first evaluating which resource provides the highest yield per unit of cost.
+  - strategic optimization logic (count=1): The ability to evaluate and compare different scenarios or resource allocations to find an optimal solution rather than following a single linear path. Failure occurs when the agent pursues a sub-optimal branch without exploring alternative configurations.
+  - multi-tier pricing logic (count=1): The ability to correctly apply bulk discount rules or tiered pricing structures when calculating total costs. Failure occurs when the agent defaults to a simple unit price calculation instead of optimizing for the most cost-effective combination of bulk and individual rates.
+- Examples:
+  - [gsm8k_49] step 6 reasoning  [mathematical strategy optimization]: Step 2: Calculate the number of occupied units. Operation: multiplication Expression: (15 * 8) * (3/4)
+  - [gsm8k_155] step 1 llm_response  [computational plan optimization]: {   "reasoning": "First, calculate the total length of each type of baked good in inches. Then, convert the baguette length to inches. Next, sum up the total lengths in inches and finally convert the result to feet.",   "steps": [     {       "description": "Calculate the total length of the rolls in inches.",       "operation": "multiplication",       "expression": "300 * 4"     },     {       "description": "Calculate the total length of the croissants in inches.",       "operation": "multiplication",       "expression": "120 * 6"     },     {       "description": "Calculate the length of one baguette in inches.",       "operation": "multiplication",       "expression": "2 * 12"     },     {       "description": "Calculate the total length of the baguettes in inches.",       "operation": "multiplication",       "expression": "60 * (2 * 12)"     },     {       "description": "Calculate the total length of all baked goods in inches.",       "operation": "addition",       "expression": ...}]}
+  - [gsm8k_448] step 1 llm_response  [computational strategy optimization]: {   "reasoning": "First, calculate the cost per sneaker. Then, calculate the revenue from the flash sale. Next, calculate the number of sneakers sold to the department store and the revenue from that sale. Finally, calculate the total revenue and subtract the initial cost to find the profit.",   "steps": [     {       "description": "Calculate the cost per sneaker.",       "operation": "division",       "expression": "576 / 48"     },     {       "description": "Calculate the revenue from the flash sale.",       "operation": "multiplication",       "expression": "17 * 20"     },     {       "description": "Calculate the number of sneakers sold to the department store.",       "operation": "subtraction",       "expression": "48 - 17"     },     {       "description": "Calculate the revenue from the department store sale.",       "operation": "multiplication",       "expression": "(48 - 17) * 25"     },     {       "description": "Calculate the total revenue.",       "operation": "additi...}]}
