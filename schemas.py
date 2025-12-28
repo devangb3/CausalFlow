@@ -122,6 +122,36 @@ class SkillAttributionOutput(BaseModel):
     )
 
 
+class SkillGroupOutput(BaseModel):
+    """Schema for grouping skill labels into higher-level skill clusters."""
+
+    group_name: str = Field(
+        ...,
+        description="Short, human-readable name for the skill group"
+    )
+    group_description: str = Field(
+        ...,
+        description="1-2 sentence description of the grouped failure pattern"
+    )
+    member_labels: List[str] = Field(
+        ...,
+        description="List of skill labels included in this group"
+    )
+    rationale: str = Field(
+        ...,
+        description="Brief explanation of why these labels belong together"
+    )
+
+
+class SkillGroupingOutput(BaseModel):
+    """Schema for LLM-based skill label grouping."""
+
+    groups: List[SkillGroupOutput] = Field(
+        ...,
+        description="List of semantic skill groups"
+    )
+
+
 class ToolArgsOutput(BaseModel):
     """Schema for parsing tool arguments from text."""
 
@@ -218,6 +248,7 @@ class LLMSchemas:
         "repair": RepairOutput,
         "critique": CritiqueOutput,
         "skill_attribution": SkillAttributionOutput,
+        "skill_grouping": SkillGroupingOutput,
         "tool_args": ToolArgsOutput,
         "gsm8k_solution": GSM8KSolution,
         "browsecomp_step": BrowseCompAgentStep,
